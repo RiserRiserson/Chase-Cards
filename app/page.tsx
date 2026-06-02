@@ -8,10 +8,29 @@ import { PortfolioChart } from '@/components/portfolio-chart'
 import { CardList } from '@/components/card-list'
 import { DistributionChart } from '@/components/distribution-chart'
 import { MarketMovers } from '@/components/market-movers'
+import { addCard } from '@/lib/addCard'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleAddTestCard = async () => {
+  await addCard({
+    name: 'Test Card',
+    game: 'pokemon',
+    set: 'Test Set',
+    year: 2024,
+    condition: 'mint',
+    marketValue: 100,
+    purchasePrice: 50,
+    quantity: 1,
+    rarity: 'Test Rare',
+    imageUrl: ''
+  })
+
+  setRefreshKey(prev => prev + 1)
+}
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -29,7 +48,11 @@ export default function Home() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <Sidebar
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+  onAddCard={handleAddTestCard}
+/>
       </div>
 
       {/* Main content */}
@@ -40,7 +63,7 @@ export default function Home() {
           <div className="mb-6">
             <h1 className="text-2xl font-bold">Dashboard</h1>
             <p className="text-muted-foreground mt-1">
-              Track your trading card collection performance
+              TRACK your trading card collection performance
             </p>
           </div>
 
@@ -61,7 +84,7 @@ export default function Home() {
             {/* Bottom Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
-                <CardList />
+                <CardList refreshKey={refreshKey} />
               </div>
               <div>
                 <MarketMovers />

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 interface SidebarProps {
   activeTab: string
   onTabChange: (tab: string) => void
+  onAddCard: () => void
 }
 
 const navItems = [
@@ -16,7 +17,7 @@ const navItems = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
-export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, onAddCard }: SidebarProps) {
   return (
     <aside className="flex flex-col w-64 border-r border-border bg-sidebar min-h-screen">
       <div className="flex items-center gap-2 px-6 py-5 border-b border-border">
@@ -27,11 +28,11 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       </div>
 
       <div className="px-4 py-4">
-        <Button className="w-full gap-2" size="sm">
-          <Plus className="w-4 h-4" />
-          Add Card
-        </Button>
-      </div>
+  <Button className="w-full gap-2" size="sm" onClick={onAddCard}>
+    <Plus className="w-4 h-4" />
+    Add Card
+  </Button>
+</div>
 
       <nav className="flex-1 px-3 py-2">
         <ul className="space-y-1">
