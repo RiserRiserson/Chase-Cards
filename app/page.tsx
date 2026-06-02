@@ -3,34 +3,33 @@
 import { useState } from 'react'
 import { Sidebar } from '@/components/sidebar'
 import { Header } from '@/components/header'
-import { StatsCards } from '@/components/stats-cards'
-import { PortfolioChart } from '@/components/portfolio-chart'
-import { CardList } from '@/components/card-list'
-import { DistributionChart } from '@/components/distribution-chart'
-import { MarketMovers } from '@/components/market-movers'
 import { addCard } from '@/lib/addCard'
+
+import { DashboardSection } from '@/components/sections/dashboard/dashboard-section'
+import { CardAnalysis } from '@/components/sections/card-analysis'
+import { TradeTree } from '@/components/sections/trade-tree'
+import { ChaseCards } from '@/components/sections/chase-cards'
+import { UpcomingSets } from '@/components/sections/upcoming-sets'
+import { Rewards } from '@/components/sections/rewards'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-const [refreshKey, setRefreshKey] = useState(0)
 
   const handleAddTestCard = async () => {
-  await addCard({
-    name: 'Test Card',
-    game: 'pokemon',
-    set: 'Test Set',
-    year: 2024,
-    condition: 'mint',
-    marketValue: 100,
-    purchasePrice: 50,
-    quantity: 1,
-    rarity: 'Test Rare',
-    imageUrl: ''
-  })
-
-  setRefreshKey(prev => prev + 1)
-}
+    await addCard({
+      name: 'Test Card',
+      game: 'pokemon',
+      set: 'Test Set',
+      year: 2024,
+      condition: 'mint',
+      marketValue: 100,
+      purchasePrice: 50,
+      quantity: 1,
+      rarity: 'Test Rare',
+      imageUrl: ''
+    })
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -49,10 +48,10 @@ const [refreshKey, setRefreshKey] = useState(0)
         }`}
       >
         <Sidebar
-  activeTab={activeTab}
-  onTabChange={setActiveTab}
-  onAddCard={handleAddTestCard}
-/>
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onAddCard={handleAddTestCard}
+        />
       </div>
 
       {/* Main content */}
@@ -67,30 +66,13 @@ const [refreshKey, setRefreshKey] = useState(0)
             </p>
           </div>
 
-          <div className="space-y-6">
-            {/* Stats Row */}
-            <StatsCards />
+          {activeTab === 'dashboard' && <DashboardSection />}
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <PortfolioChart />
-              </div>
-              <div>
-                <DistributionChart />
-              </div>
-            </div>
-
-            {/* Bottom Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <CardList refreshKey={refreshKey} />
-              </div>
-              <div>
-                <MarketMovers />
-              </div>
-            </div>
-          </div>
+          {activeTab === 'card-analysis' && <CardAnalysis />}
+          {activeTab === 'trade-tree' && <TradeTree />}
+          {activeTab === 'chase-cards' && <ChaseCards />}
+          {activeTab === 'upcoming-sets' && <UpcomingSets />}
+          {activeTab === 'rewards' && <Rewards />}
         </main>
       </div>
     </div>

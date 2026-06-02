@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { Layers, BarChart3, Settings, Home, Plus, Search } from 'lucide-react'
+import { Layers, BarChart3, Settings, Home, Plus, Search, GitBranch, Gift, Calendar, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface SidebarProps {
@@ -14,8 +14,17 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
   { id: 'collection', label: 'Collection', icon: Layers },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+
+  { id: 'card-analysis', label: 'Card Analysis', icon: Search },
+  { id: 'trade-tree', label: 'Trade Tree', icon: GitBranch },
+  { id: 'chase-cards', label: 'Chase Cards', icon: Sparkles },
+  { id: 'upcoming-sets', label: 'Upcoming Sets', icon: Calendar },
+  { id: 'rewards', label: 'Rewards', icon: Gift },
+
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
+
+const APP_NAME = 'ChaseCards'
 
 export function Sidebar({ activeTab, onTabChange, onAddCard }: SidebarProps) {
   return (
@@ -24,7 +33,7 @@ export function Sidebar({ activeTab, onTabChange, onAddCard }: SidebarProps) {
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
           <Layers className="w-5 h-5 text-primary-foreground" />
         </div>
-        <span className="text-lg font-semibold text-sidebar-foreground">CardVault</span>
+        <span className="text-lg font-semibold text-sidebar-foreground">{APP_NAME}</span>
       </div>
 
       <div className="px-4 py-4">

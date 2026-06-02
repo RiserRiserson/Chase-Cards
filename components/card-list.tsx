@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabaseClient'
 
-export function CardList({ refreshKey }: { refreshKey: number }) {
+export function CardList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [cards, setCards] = useState<any[]>([])
 
   const fetchCards = async () => {
@@ -21,8 +21,8 @@ export function CardList({ refreshKey }: { refreshKey: number }) {
   }
 
   useEffect(() => {
-    fetchCards()
-  }, [refreshKey])
+  fetchCards()
+}, [refreshKey])
 
   return (
     <Card>
