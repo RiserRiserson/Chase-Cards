@@ -6,7 +6,7 @@ import { CardList } from '@/components/card-list'
 import { DistributionChart } from '@/components/distribution-chart'
 import { MarketMovers } from '@/components/market-movers'
 
-export function DashboardSection() {
+export function DashboardSection({ userId }: { userId?: string }) {
   return (
     <div className="space-y-6">
       {/* Stats Row */}
@@ -25,7 +25,7 @@ export function DashboardSection() {
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <CardList />
+          <CardList userId={userId} />
         </div>
         <div>
           <MarketMovers />

@@ -1,6 +1,13 @@
 import { supabase } from './supabaseClient'
 
 export async function addCard(card: any) {
+  // Get current authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+  if (userError) {
+    console.error("USER FETCH ERROR:", userError)
+  }
+
   const payload = {
     name: card.name,
     game: card.game,
@@ -12,6 +19,9 @@ export async function addCard(card: any) {
     quantity: card.quantity,
     rarity: card.rarity,
     imageurl: card.imageUrl,
+
+    // NEW: ownership field
+    user_id: user?.id || null
   }
 
   console.log("INSERT PAYLOAD:", payload)
@@ -19,7 +29,7 @@ export async function addCard(card: any) {
   const { data, error } = await supabase
     .from('cards')
     .insert([payload])
-    .select()   // IMPORTANT: must return inserted row
+    .select()
 
   console.log("INSERT RESULT DATA:", data)
   console.log("INSERT RESULT ERROR:", error)
