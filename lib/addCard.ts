@@ -4,24 +4,23 @@ export async function addCard(card: any) {
   // Get current authenticated user
   const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-  if (userError) {
+  if (userError || !user) {
     console.error("USER FETCH ERROR:", userError)
+    return { data: null, error: userError || new Error("No authenticated user") }
   }
 
   const payload = {
     name: card.name,
     game: card.game,
-    set_name: card.set,
+    set: card.set,
     year: card.year,
     condition: card.condition,
-    marketvalue: card.marketValue,
-    purchaseprice: card.purchasePrice,
+    market_value: card.marketValue,
+    purchase_price: card.purchasePrice,
     quantity: card.quantity,
     rarity: card.rarity,
-    imageurl: card.imageUrl,
-
-    // NEW: ownership field
-    user_id: user?.id || null
+    image_url: card.imageUrl,
+    user_id: user.id   // ✅ ALWAYS from auth, not input
   }
 
   console.log("INSERT PAYLOAD:", payload)
