@@ -22,6 +22,9 @@ export function CollectionSection({ userId }: { userId?: string }) {
   const [editMode, setEditMode] = useState(false)
   const [editValue, setEditValue] = useState<number>(0)
 
+  // NEW: view mode toggle
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+
   const fetchCards = async () => {
     if (!userId) {
       setCards([])
@@ -43,12 +46,34 @@ export function CollectionSection({ userId }: { userId?: string }) {
       return
     }
 
-    setCards(data || [])
+    setCards((data as CardItem[]) || [])
     setLoading(false)
   }
 
   useEffect(() => {
     fetchCards()
+  }, [userId])
+
+  useEffect(() => {
+    if (!userId) return
+
+    const channel = supabase
+      .channel(`collection-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'cards',
+          filter: `user_id=eq.${userId}`
+        },
+        () => fetchCards()
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [userId])
 
   const deleteCard = async (id: string) => {
@@ -83,6 +108,34 @@ export function CollectionSection({ userId }: { userId?: string }) {
     fetchCards()
   }
 
+  const handleImageUpload = async (file: File) => {
+    if (!selectedCard) return
+
+    const filePath = `${selectedCard.id}-${Date.now()}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('card-images')
+      .upload(filePath, file)
+
+    if (uploadError) {
+      console.error(uploadError)
+      return
+    }
+
+    const { data } = supabase.storage
+      .from('card-images')
+      .getPublicUrl(filePath)
+
+    const imageUrl = data.publicUrl
+
+    await supabase
+      .from('cards')
+      .update({ image_url: imageUrl })
+      .eq('id', selectedCard.id)
+
+    setSelectedCard({ ...selectedCard, image_url: imageUrl })
+  }
+
   if (loading) {
     return (
       <div className="p-6 text-sm text-muted-foreground">
@@ -92,141 +145,246 @@ export function CollectionSection({ userId }: { userId?: string }) {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-6">
 
-      {/* HEADER */}
-      <div>
-        <h2 className="text-xl font-semibold">Collection</h2>
-        <p className="text-sm text-muted-foreground">
-          {cards.length} cards
-        </p>
-      </div>
+      {/* HEADER + TOGGLE */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold">Collection</h2>
+          <p className="text-sm text-muted-foreground">
+            {cards.length} cards
+          </p>
+        </div>
 
-      {/* GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-
-        {cards.map((card) => (
-          <div
-            key={card.id}
-            className="border rounded-lg p-4 bg-card hover:shadow-md transition cursor-pointer"
-            onClick={() => {
-              setSelectedCard(card)
-              setEditValue(card.market_value)
-              setEditMode(false)
-            }}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`px-3 py-1 rounded text-sm ${
+              viewMode === 'grid'
+                ? 'bg-primary text-white'
+                : 'bg-muted'
+            }`}
           >
+            Grid
+          </button>
 
-            {/* IMAGE PLACEHOLDER */}
-            <div className="h-32 w-full bg-muted rounded mb-3 flex items-center justify-center text-xs text-muted-foreground">
-              {card.image_url ? 'Image' : 'No Image'}
-            </div>
-
-            {/* NAME */}
-            <div className="font-medium truncate">
-              {card.name}
-            </div>
-
-            {/* SET */}
-            <div className="text-xs text-muted-foreground">
-              {card.game} • {card.set_name ?? card.set ?? 'Unknown Set'}
-            </div>
-
-            {/* VALUE */}
-            <div className="mt-2 flex justify-between text-sm">
-              <span className="text-muted-foreground">Value</span>
-              <span className="font-medium">${card.market_value}</span>
-            </div>
-
-            {/* QTY */}
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Qty</span>
-              <span>{card.quantity}</span>
-            </div>
-
-          </div>
-        ))}
-
+          <button
+            onClick={() => setViewMode('list')}
+            className={`px-3 py-1 rounded text-sm ${
+              viewMode === 'list'
+                ? 'bg-primary text-white'
+                : 'bg-muted'
+            }`}
+          >
+            List
+          </button>
+        </div>
       </div>
 
-      {/* MODAL */}
-      {selectedCard && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      {/* GRID VIEW */}
+      {viewMode === 'grid' && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
 
-          <div className="bg-background w-full max-w-md rounded-lg p-6 space-y-4">
+          {cards.map((card) => (
+            <div
+              key={card.id}
+              className="
+                border rounded-xl bg-card
+                overflow-hidden cursor-pointer
+                hover:shadow-lg transition
+                flex flex-col
+                aspect-[2.2/3.2]
+              "
+              onClick={() => {
+                setSelectedCard(card)
+                setEditValue(card.market_value ?? 0)
+                setEditMode(false)
+              }}
+            >
 
-            {/* HEADER */}
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-lg font-semibold">
-                  {selectedCard.name}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {selectedCard.game} • {selectedCard.set_name ?? selectedCard.set}
-                </p>
-              </div>
-
-              <button
-                onClick={() => setSelectedCard(null)}
-                className="text-sm text-muted-foreground"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* DETAILS */}
-            <div className="space-y-3 text-sm">
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Value</span>
-
-                {editMode ? (
-                  <input
-                    className="border rounded px-2 py-1 w-24 text-right"
-                    type="number"
-                    value={editValue}
-                    onChange={(e) => setEditValue(Number(e.target.value))}
+              <div className="flex-[7] bg-muted overflow-hidden">
+                {card.image_url ? (
+                  <img
+                    src={card.image_url}
+                    alt={card.name}
+                    className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span>${selectedCard.market_value}</span>
+                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                    No Image
+                  </div>
                 )}
               </div>
 
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Quantity</span>
-                <span>{selectedCard.quantity}</span>
+              <div className="flex-[3] p-2 flex flex-col justify-between">
+                <div>
+                  <div className="font-medium text-sm truncate">
+                    {card.name}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {card.game} • {card.set_name ?? card.set ?? 'Unknown Set'}
+                  </div>
+                </div>
+
+                <div className="flex justify-between text-xs mt-2">
+                  <span>${card.market_value ?? 0}</span>
+                  <span>Qty {card.quantity ?? 0}</span>
+                </div>
               </div>
 
             </div>
+          ))}
+        </div>
+      )}
 
-            {/* ACTIONS */}
-            <div className="flex gap-2 pt-4">
+      {/* LIST VIEW */}
+      {viewMode === 'list' && (
+        <div className="space-y-2">
 
-              <button
-                className="flex-1 bg-blue-600 text-white py-2 rounded"
-                onClick={() => {
-                  if (editMode) {
-                    saveEdit()
-                  } else {
-                    setEditMode(true)
-                  }
-                }}
-              >
-                {editMode ? 'Save' : 'Edit'}
-              </button>
+          {cards.map((card) => (
+            <div
+              key={card.id}
+              onClick={() => {
+                setSelectedCard(card)
+                setEditValue(card.market_value ?? 0)
+                setEditMode(false)
+              }}
+              className="flex items-center justify-between p-3 border rounded bg-card hover:bg-muted cursor-pointer"
+            >
 
-              <button
-                className="flex-1 bg-red-600 text-white py-2 rounded"
-                onClick={() => deleteCard(selectedCard.id)}
-              >
-                Delete
-              </button>
+              <div className="flex items-center gap-3">
+
+                <div className="w-10 h-10 bg-muted rounded overflow-hidden">
+                  {card.image_url ? (
+                    <img
+                      src={card.image_url}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs flex items-center justify-center h-full">
+                      No
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <div className="text-sm font-medium">{card.name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {card.game} • {card.set_name ?? card.set}
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="text-right text-sm">
+                <div>${card.market_value ?? 0}</div>
+                <div className="text-xs text-muted-foreground">
+                  Qty {card.quantity ?? 0}
+                </div>
+              </div>
 
             </div>
-
-          </div>
+          ))}
 
         </div>
       )}
+
+      {/* MODAL (unchanged except layout preserved) */}
+{/* MODAL */}
+{selectedCard && (
+  <div
+    className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+    onClick={() => setSelectedCard(null)}
+  >
+    <div
+      className="bg-background w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col"
+      onClick={(e) => e.stopPropagation()}
+    >
+
+      {/* IMAGE (taller rectangle look restored) */}
+      {selectedCard.image_url && (
+  <div className="w-full max-h-[50vh] bg-muted flex items-center justify-center overflow-hidden">
+    <img
+      src={selectedCard.image_url}
+      alt={selectedCard.name}
+      className="max-h-[50vh] w-auto object-contain"
+    />
+  </div>
+)}
+
+      {/* UPLOAD */}
+      <div className="p-3 border-b">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) handleImageUpload(file)
+          }}
+        />
+      </div>
+
+      {/* CONTENT */}
+      <div className="p-5 space-y-4">
+
+        {/* TITLE */}
+        <div>
+          <h3 className="text-lg font-semibold">
+            {selectedCard.name}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {selectedCard.game} • {selectedCard.set_name ?? selectedCard.set}
+          </p>
+        </div>
+
+        {/* VALUE */}
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Value</span>
+
+          {editMode ? (
+            <input
+              className="border rounded px-2 py-1 w-28 text-right"
+              type="number"
+              value={editValue}
+              onChange={(e) => setEditValue(Number(e.target.value))}
+            />
+          ) : (
+            <span>${selectedCard.market_value ?? 0}</span>
+          )}
+        </div>
+
+        {/* QTY */}
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Quantity</span>
+          <span>{selectedCard.quantity ?? 0}</span>
+        </div>
+
+        {/* ACTIONS */}
+        <div className="flex gap-2 pt-3">
+
+          <button
+            className="flex-1 bg-blue-600 text-white py-2 rounded"
+            onClick={() => {
+              if (editMode) saveEdit()
+              else setEditMode(true)
+            }}
+          >
+            {editMode ? 'Save' : 'Edit'}
+          </button>
+
+          <button
+            className="flex-1 bg-red-600 text-white py-2 rounded"
+            onClick={() => deleteCard(selectedCard.id)}
+          >
+            Delete
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+)}
 
     </div>
   )
