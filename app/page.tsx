@@ -12,6 +12,9 @@ import { TradeTree } from '@/components/sections/trade-tree'
 import { ChaseCards } from '@/components/sections/chase-cards'
 import { UpcomingSets } from '@/components/sections/upcoming-sets'
 import { Rewards } from '@/components/sections/rewards'
+import { CollectionSection } from '@/components/sections/collection'
+import { AnalyticsSection } from '@/components/sections/analytics'
+import { SettingsSection } from '@/components/sections/settings'
 
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
@@ -87,10 +90,11 @@ export default function Home() {
         }`}
       >
         <Sidebar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onAddCard={handleAddTestCard}
-        />
+  activeTab={activeTab}
+  onTabChange={setActiveTab}
+  onAddCard={handleAddTestCard}
+  userEmail={user?.email}
+/>
       </div>
 
       {/* Main content */}
@@ -130,14 +134,19 @@ export default function Home() {
 
           {/* TABS */}
           {activeTab === 'dashboard' && (
-            <DashboardSection userId={user?.id} />
-          )}
+  <DashboardSection userId={user?.id} />
+)}
 
-          {activeTab === 'card-analysis' && <CardAnalysis />}
-          {activeTab === 'trade-tree' && <TradeTree />}
-          {activeTab === 'chase-cards' && <ChaseCards />}
-          {activeTab === 'upcoming-sets' && <UpcomingSets />}
-          {activeTab === 'rewards' && <Rewards />}
+{activeTab === 'collection' && (
+  <CollectionSection userId={user?.id} />
+)}
+{activeTab === 'analytics' && <AnalyticsSection />}
+{activeTab === 'card-analysis' && <CardAnalysis />}
+{activeTab === 'trade-tree' && <TradeTree />}
+{activeTab === 'chase-cards' && <ChaseCards />}
+{activeTab === 'upcoming-sets' && <UpcomingSets />}
+{activeTab === 'rewards' && <Rewards />}
+{activeTab === 'settings' && <SettingsSection />}
 
         </main>
       </div>
