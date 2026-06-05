@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 
 import { Sidebar } from '@/components/sidebar'
 import { Header } from '@/components/header'
-import { addCard } from '@/lib/addCard'
+import { AddCardModal } from '@/components/add-card-modal'
 
 import { DashboardSection } from '@/components/sections/dashboard/dashboard-section'
 import { CardAnalysis } from '@/components/sections/card-analysis'
@@ -25,39 +25,17 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
-
-  const handleAddTestCard = async () => {
-  const result = await addCard({
-    name: 'Test Card',
-    game: 'pokemon',
-    set: 'Test Set',
-    year: 2024,
-    condition: 'mint',
-    marketValue: 100,
-    purchasePrice: 50,
-    quantity: 1,
-    rarity: 'Test Rare',
-    imageUrl: '',
-    user_id: user?.id
-  })
-
-  // optional debug
-  console.log('CARD INSERTED:', result)
-}
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    setUser(null)
-    router.push('/auth')
-  }
+  const [addOpen, setAddOpen] = useState(false)
 
   // SESSION TRACKING
   useEffect(() => {
     const getSession = async () => {
       const { data } = await supabase.auth.getSession()
-      setUser(data.session?.user ?? null)
 
-      if (!data.session?.user) {
+      const sessionUser = data.session?.user ?? null
+      setUser(sessionUser)
+
+      if (!sessionUser) {
         router.push('/auth')
       }
     }
@@ -80,31 +58,37 @@ export default function Home() {
     }
   }, [router])
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    router.push('/auth')
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
 
-      {/* Sidebar */}
+      {/* SIDEBAR */}
       <div
         className={`fixed inset-y-0 left-0 z-50 lg:relative lg:z-0 transform transition-transform duration-200 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <Sidebar
-  activeTab={activeTab}
-  onTabChange={setActiveTab}
-  onAddCard={handleAddTestCard}
-  userEmail={user?.email}
-/>
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onAddCard={() => setAddOpen(true)}
+          userEmail={user?.email}
+        />
       </div>
 
-      {/* Main content */}
+      {/* MAIN */}
       <div className="flex-1 flex flex-col min-w-0">
 
         <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
 
         <main className="flex-1 p-6 overflow-auto">
 
-          {/* HEADER AREA */}
+          {/* HEADER */}
           <div className="mb-6 space-y-4">
 
             <div>
@@ -114,7 +98,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* USER STATUS + SIGN OUT */}
             {user && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
@@ -129,27 +112,54 @@ export default function Home() {
                 </button>
               </div>
             )}
-
           </div>
 
-          {/* TABS */}
+          {/* TABS (clean + safe rendering) */}
           {activeTab === 'dashboard' && (
-  <DashboardSection userId={user?.id} />
-)}
+            <DashboardSection userId={user?.id} />
+          )}
 
-{activeTab === 'collection' && (
-  <CollectionSection userId={user?.id} />
-)}
-{activeTab === 'analytics' && <AnalyticsSection />}
-{activeTab === 'card-analysis' && <CardAnalysis />}
-{activeTab === 'trade-tree' && <TradeTree />}
-{activeTab === 'chase-cards' && <ChaseCards />}
-{activeTab === 'upcoming-sets' && <UpcomingSets />}
-{activeTab === 'rewards' && <Rewards />}
-{activeTab === 'settings' && <SettingsSection />}
+          {activeTab === 'collection' && (
+            <CollectionSection userId={user?.id} />
+          )}
+
+          {activeTab === 'analytics' && (
+            <AnalyticsSection />
+          )}
+
+          {activeTab === 'card-analysis' && (
+            <CardAnalysis />
+          )}
+
+          {activeTab === 'trade-tree' && (
+            <TradeTree />
+          )}
+
+          {activeTab === 'chase-cards' && (
+            <ChaseCards />
+          )}
+
+          {activeTab === 'upcoming-sets' && (
+            <UpcomingSets />
+          )}
+
+          {activeTab === 'rewards' && (
+            <Rewards />
+          )}
 
         </main>
       </div>
+
+      {/* MODAL (IMPORTANT: outside layout flow) */}
+      <AddCardModal
+        userId={user?.id}
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onSuccess={() => {
+          console.log('card added')
+        }}
+      />
+
     </div>
   )
 }
