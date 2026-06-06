@@ -28,19 +28,14 @@ interface SidebarProps {
 
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
-
-  // NEW COLLECTION PAGE
   { id: 'collection', label: 'Collection', icon: Layers },
-
-  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-
+  //{ id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'card-analysis', label: 'Card Analysis', icon: Search },
-  { id: 'trade-tree', label: 'Trade Tree', icon: GitBranch },
-  { id: 'chase-cards', label: 'Chase Cards', icon: Sparkles },
-  { id: 'upcoming-sets', label: 'Upcoming Sets', icon: Calendar },
-  { id: 'rewards', label: 'Rewards', icon: Gift },
-
-  { id: 'settings', label: 'Settings', icon: Settings },
+  //{ id: 'trade-tree', label: 'Trade Tree', icon: GitBranch },
+  //{ id: 'chase-cards', label: 'Chase Cards', icon: Sparkles },
+  //{ id: 'upcoming-sets', label: 'Upcoming Sets', icon: Calendar },
+  //{ id: 'rewards', label: 'Rewards', icon: Gift },
+  //{ id: 'settings', label: 'Settings', icon: Settings },
 ]
 
 const APP_NAME = 'ChaseCards'
