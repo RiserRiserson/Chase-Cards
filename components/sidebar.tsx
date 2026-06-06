@@ -31,10 +31,10 @@ const navItems = [
   { id: 'collection', label: 'Collection', icon: Layers },
   //{ id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'card-analysis', label: 'Card Analysis', icon: Search },
-  //{ id: 'trade-tree', label: 'Trade Tree', icon: GitBranch },
+  { id: 'trade-tree', label: 'Trade Tree', icon: GitBranch },
   //{ id: 'chase-cards', label: 'Chase Cards', icon: Sparkles },
   { id: 'upcoming-sets', label: 'Upcoming Sets', icon: Calendar },
-  //{ id: 'rewards', label: 'Rewards', icon: Gift },
+  { id: 'rewards', label: 'Rewards', icon: Gift },
   //{ id: 'settings', label: 'Settings', icon: Settings },
 ]
 
