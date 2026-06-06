@@ -33,7 +33,7 @@ const navItems = [
   { id: 'card-analysis', label: 'Card Analysis', icon: Search },
   //{ id: 'trade-tree', label: 'Trade Tree', icon: GitBranch },
   //{ id: 'chase-cards', label: 'Chase Cards', icon: Sparkles },
-  //{ id: 'upcoming-sets', label: 'Upcoming Sets', icon: Calendar },
+  { id: 'upcoming-sets', label: 'Upcoming Sets', icon: Calendar },
   //{ id: 'rewards', label: 'Rewards', icon: Gift },
   //{ id: 'settings', label: 'Settings', icon: Settings },
 ]
