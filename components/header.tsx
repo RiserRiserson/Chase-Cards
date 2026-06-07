@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Bell, Menu, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { useEffect, useState } from 'react'
 
 interface HeaderProps {
   onMenuToggle?: () => void
@@ -11,6 +12,11 @@ interface HeaderProps {
 
 export function Header({ onMenuToggle }: HeaderProps) {
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
@@ -46,10 +52,12 @@ export function Header({ onMenuToggle }: HeaderProps) {
             setTheme(theme === 'dark' ? 'light' : 'dark')
           }
         >
-          {theme === 'dark' ? (
-            <Sun className="w-5 h-5" />
-          ) : (
-            <Moon className="w-5 h-5" />
+          {!mounted ? null : (
+            theme === 'dark' ? (
+              <Sun className="w-5 h-5" />
+            ) : (
+              <Moon className="w-5 h-5" />
+            )
           )}
         </Button>
 

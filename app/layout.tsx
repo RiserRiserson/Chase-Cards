@@ -20,18 +20,19 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html
-      lang="en"
-      className={geist.className}
-      suppressHydrationWarning
+    <html lang="en" className={geist.className} suppressHydrationWarning>
+  <body className="antialiased min-h-screen">
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem={false}
+      disableTransitionOnChange
     >
-      <body className="antialiased min-h-screen">
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+      {children}
+    </ThemeProvider>
 
-        {process.env.NODE_ENV === 'production' && <Analytics />}
-      </body>
-    </html>
+    {process.env.NODE_ENV === 'production' && <Analytics />}
+  </body>
+</html>
   )
 }

@@ -12,7 +12,7 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
       attribute="class"
       defaultTheme="dark"
       enableSystem={false}
-      storageKey="cardvault-theme"
+      disableTransitionOnChange
       {...props}
     >
       {children}
