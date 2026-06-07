@@ -22,16 +22,30 @@ export function Rewards() {
   const [newTaskText, setNewTaskText] = useState('')
   const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null)
 
+  // ✅ NEW: prevents overwriting localStorage before it loads
+  const [loaded, setLoaded] = useState(false)
+
   // ---------------- LOAD ----------------
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) setRewards(JSON.parse(saved))
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+
+      if (saved) {
+        setRewards(JSON.parse(saved))
+      }
+    } catch (err) {
+      console.error('Failed to load rewards:', err)
+    }
+
+    setLoaded(true)
   }, [])
 
   // ---------------- SAVE ----------------
   useEffect(() => {
+    if (!loaded) return
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(rewards))
-  }, [rewards])
+  }, [rewards, loaded])
 
   // ---------------- CREATE REWARD ----------------
   const addReward = () => {

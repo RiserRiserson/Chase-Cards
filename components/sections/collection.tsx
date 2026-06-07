@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 
-
 type CardItem = {
   id: string
   name: string
@@ -23,8 +22,17 @@ export function CollectionSection({ userId }: { userId?: string }) {
   const [editMode, setEditMode] = useState(false)
   const [editValue, setEditValue] = useState<number>(0)
 
-  // NEW: view mode toggle
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // VIEW MODE (persisted)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'list'
+    return (localStorage.getItem('collection_view_mode') as 'grid' | 'list') || 'list'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('collection_view_mode', viewMode)
+  }, [viewMode])
 
   const fetchCards = async () => {
     if (!userId) {
@@ -89,6 +97,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
     }
 
     setSelectedCard(null)
+    setConfirmDelete(false)
     fetchCards()
   }
 
@@ -106,6 +115,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
     }
 
     setSelectedCard(null)
+    setEditMode(false)
     fetchCards()
   }
 
@@ -189,20 +199,14 @@ export function CollectionSection({ userId }: { userId?: string }) {
           {cards.map((card) => (
             <div
               key={card.id}
-              className="
-                border rounded-xl bg-card
-                overflow-hidden cursor-pointer
-                hover:shadow-lg transition
-                flex flex-col
-                aspect-[2.2/3.2]
-              "
+              className="border rounded-xl bg-card overflow-hidden cursor-pointer hover:shadow-lg transition flex flex-col aspect-[2.2/3.2]"
               onClick={() => {
                 setSelectedCard(card)
                 setEditValue(card.market_value ?? 0)
                 setEditMode(false)
+                setConfirmDelete(false)
               }}
             >
-
               <div className="flex-[7] bg-muted overflow-hidden">
                 {card.image_url ? (
                   <img
@@ -232,7 +236,6 @@ export function CollectionSection({ userId }: { userId?: string }) {
                   <span>Qty {card.quantity ?? 0}</span>
                 </div>
               </div>
-
             </div>
           ))}
         </div>
@@ -249,10 +252,10 @@ export function CollectionSection({ userId }: { userId?: string }) {
                 setSelectedCard(card)
                 setEditValue(card.market_value ?? 0)
                 setEditMode(false)
+                setConfirmDelete(false)
               }}
               className="flex items-center justify-between p-3 border rounded bg-card hover:bg-muted cursor-pointer"
             >
-
               <div className="flex items-center gap-3">
 
                 <div className="w-10 h-10 bg-muted rounded overflow-hidden">
@@ -283,109 +286,124 @@ export function CollectionSection({ userId }: { userId?: string }) {
                   Qty {card.quantity ?? 0}
                 </div>
               </div>
-
             </div>
           ))}
 
         </div>
       )}
 
-      {/* MODAL (unchanged except layout preserved) */}
-{/* MODAL */}
-{selectedCard && (
-  <div
-    className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-    onClick={() => setSelectedCard(null)}
-  >
-    <div
-      className="bg-background w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col"
-      onClick={(e) => e.stopPropagation()}
-    >
-
-      {/* IMAGE (taller rectangle look restored) */}
-      {selectedCard.image_url && (
-  <div className="w-full max-h-[50vh] bg-muted flex items-center justify-center overflow-hidden">
-    <img
-      src={selectedCard.image_url}
-      alt={selectedCard.name}
-      className="max-h-[50vh] w-auto object-contain"
-    />
-  </div>
-)}
-
-      {/* UPLOAD */}
-      <div className="p-3 border-b">
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) handleImageUpload(file)
+      {/* MODAL */}
+      {selectedCard && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            setSelectedCard(null)
+            setConfirmDelete(false)
           }}
-        />
-      </div>
-
-      {/* CONTENT */}
-      <div className="p-5 space-y-4">
-
-        {/* TITLE */}
-        <div>
-          <h3 className="text-lg font-semibold">
-            {selectedCard.name}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            {selectedCard.game} • {selectedCard.set_name ?? selectedCard.set}
-          </p>
-        </div>
-
-        {/* VALUE */}
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Value</span>
-
-          {editMode ? (
-            <input
-              className="border rounded px-2 py-1 w-28 text-right"
-              type="number"
-              value={editValue}
-              onChange={(e) => setEditValue(Number(e.target.value))}
-            />
-          ) : (
-            <span>${selectedCard.market_value ?? 0}</span>
-          )}
-        </div>
-
-        {/* QTY */}
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">Quantity</span>
-          <span>{selectedCard.quantity ?? 0}</span>
-        </div>
-
-        {/* ACTIONS */}
-        <div className="flex gap-2 pt-3">
-
-          <button
-            className="flex-1 bg-blue-600 text-white py-2 rounded"
-            onClick={() => {
-              if (editMode) saveEdit()
-              else setEditMode(true)
-            }}
+        >
+          <div
+            className="bg-background w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
           >
-            {editMode ? 'Save' : 'Edit'}
-          </button>
 
-          <button
-            className="flex-1 bg-red-600 text-white py-2 rounded"
-            onClick={() => deleteCard(selectedCard.id)}
-          >
-            Delete
-          </button>
+            {selectedCard.image_url && (
+              <div className="w-full max-h-[50vh] bg-muted flex items-center justify-center overflow-hidden">
+                <img
+                  src={selectedCard.image_url}
+                  alt={selectedCard.name}
+                  className="max-h-[50vh] w-auto object-contain"
+                />
+              </div>
+            )}
 
+            <div className="p-3 border-b">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleImageUpload(file)
+                }}
+              />
+            </div>
+
+            <div className="p-5 space-y-4">
+
+              <div>
+                <h3 className="text-lg font-semibold">{selectedCard.name}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {selectedCard.game} • {selectedCard.set_name ?? selectedCard.set}
+                </p>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Value</span>
+
+                {editMode ? (
+                  <input
+                    className="border rounded px-2 py-1 w-28 text-right"
+                    type="number"
+                    value={editValue}
+                    onChange={(e) => setEditValue(Number(e.target.value))}
+                  />
+                ) : (
+                  <span>${selectedCard.market_value ?? 0}</span>
+                )}
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Quantity</span>
+                <span>{selectedCard.quantity ?? 0}</span>
+              </div>
+
+              {/* ACTIONS */}
+              <div className="flex items-center justify-between pt-3">
+
+                <button
+                  className="flex-1 bg-blue-600 text-white py-2 rounded"
+                  onClick={() => {
+                    if (editMode) saveEdit()
+                    else setEditMode(true)
+                  }}
+                >
+                  {editMode ? 'Save' : 'Edit'}
+                </button>
+
+                <div className="ml-3 flex items-center gap-2">
+
+                  {!confirmDelete ? (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="p-2 text-red-500 hover:bg-red-50 rounded"
+                      title="Delete"
+                    >
+                      🗑️
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setConfirmDelete(false)}
+                        className="text-xs px-2 py-1 rounded bg-muted"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        onClick={() => deleteCard(selectedCard.id)}
+                        className="text-xs px-2 py-1 rounded bg-red-600 text-white"
+                      >
+                        Confirm
+                      </button>
+                    </>
+                  )}
+
+                </div>
+              </div>
+
+            </div>
+          </div>
         </div>
-
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
     </div>
   )
