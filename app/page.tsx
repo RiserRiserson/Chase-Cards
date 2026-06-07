@@ -74,11 +74,14 @@ export default function Home() {
         }`}
       >
         <Sidebar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onAddCard={() => setAddOpen(true)}
-          userEmail={user?.email}
-        />
+  activeTab={activeTab}
+  onTabChange={(tab) => {
+    setActiveTab(tab)
+    setSidebarOpen(false)
+  }}
+  onAddCard={() => setAddOpen(true)}
+  userEmail={user?.email}
+/>
       </div>
 
       {/* MAIN */}
