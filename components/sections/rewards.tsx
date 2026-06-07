@@ -22,30 +22,26 @@ export function Rewards() {
   const [newTaskText, setNewTaskText] = useState('')
   const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null)
 
-  // ✅ NEW: prevents overwriting localStorage before it loads
-  const [loaded, setLoaded] = useState(false)
+  // only used for localStorage safety
+  const [mounted, setMounted] = useState(false)
 
   // ---------------- LOAD ----------------
   useEffect(() => {
+    setMounted(true)
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
-
-      if (saved) {
-        setRewards(JSON.parse(saved))
-      }
+      if (saved) setRewards(JSON.parse(saved))
     } catch (err) {
       console.error('Failed to load rewards:', err)
     }
-
-    setLoaded(true)
   }, [])
 
   // ---------------- SAVE ----------------
   useEffect(() => {
-    if (!loaded) return
-
+    if (!mounted) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(rewards))
-  }, [rewards, loaded])
+  }, [rewards, mounted])
 
   // ---------------- CREATE REWARD ----------------
   const addReward = () => {
@@ -84,6 +80,7 @@ export function Rewards() {
     )
 
     setNewTaskText('')
+    setSelectedRewardId(null)
   }
 
   // ---------------- TOGGLE TASK ----------------
@@ -102,12 +99,11 @@ export function Rewards() {
     )
   }
 
-  // ---------------- DELETE REWARD ----------------
+  // ---------------- DELETE ----------------
   const deleteReward = (rewardId: string) => {
     setRewards(prev => prev.filter(r => r.id !== rewardId))
   }
 
-  // ---------------- COMPLETION CHECK ----------------
   const isComplete = (reward: Reward) =>
     reward.tasks.length > 0 &&
     reward.tasks.every(t => t.done)
@@ -115,7 +111,7 @@ export function Rewards() {
   return (
     <div className="p-6 space-y-6">
 
-      {/* HEADER */}
+      {/* HEADER (always identical SSR/client) */}
       <div>
         <h2 className="text-xl font-semibold">Rewards</h2>
         <p className="text-muted-foreground mt-1">
@@ -128,7 +124,7 @@ export function Rewards() {
 
         <input
           className="w-full border rounded px-3 py-2 text-sm"
-          placeholder="New reward title (e.g. Buy a graded rookie card)"
+          placeholder="New reward title"
           value={newTitle}
           onChange={e => setNewTitle(e.target.value)}
         />
@@ -160,8 +156,8 @@ export function Rewards() {
             <div className="flex items-center justify-between">
 
               <div className="space-y-1">
-                <div className="font-medium flex items-center gap-2">
 
+                <div className="font-medium flex items-center gap-2">
                   {reward.title}
 
                   {isComplete(reward) && (
@@ -169,12 +165,12 @@ export function Rewards() {
                       Completed
                     </span>
                   )}
-
                 </div>
 
                 <div className="text-xs text-muted-foreground">
                   {reward.tasks.filter(t => t.done).length} / {reward.tasks.length} tasks complete
                 </div>
+
               </div>
 
               <button
@@ -186,7 +182,7 @@ export function Rewards() {
 
             </div>
 
-            {/* TASK LIST */}
+            {/* TASKS */}
             <div className="space-y-2">
 
               {reward.tasks.map(task => (

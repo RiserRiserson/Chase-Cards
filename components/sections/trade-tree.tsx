@@ -130,7 +130,7 @@ export function TradeTree() {
         <div className={`w-3.5 h-3.5 rounded-full mt-1 ${getColor(event.type)}`} />
 
         {/* vertical connector line */}
-        <div className="absolute top-4 bottom-[-2rem] w-px bg-border" />
+        <div className="absolute top-4 bottom-8 w-px bg-border" />
       </div>
 
       {/* CONTENT */}
@@ -142,7 +142,7 @@ export function TradeTree() {
           </span>
 
           <span className="text-xs text-muted-foreground">
-            {new Date(event.date).toLocaleDateString()}
+            {new Date(event.date).toISOString().split('T')[0]}
           </span>
 
           {event.grade && (

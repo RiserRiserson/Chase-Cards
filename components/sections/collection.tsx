@@ -207,7 +207,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
                 setConfirmDelete(false)
               }}
             >
-              <div className="flex-[7] bg-muted overflow-hidden">
+              <div className="flex-7 bg-muted overflow-hidden">
                 {card.image_url ? (
                   <img
                     src={card.image_url}
@@ -221,7 +221,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
                 )}
               </div>
 
-              <div className="flex-[3] p-2 flex flex-col justify-between">
+              <div className="flex-3 p-2 flex flex-col justify-between">
                 <div>
                   <div className="font-medium text-sm truncate">
                     {card.name}

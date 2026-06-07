@@ -56,13 +56,19 @@ export function ChaseCards() {
   }
 
   // ---------------- EBAY SEARCH ----------------
-  const openEbaySearch = (card: ChaseCard) => {
-    const searchTerm = encodeURIComponent(card.query || card.name)
+const openEbaySearch = (card: ChaseCard) => {
+  const searchTerm = encodeURIComponent(card.query || card.name)
 
-    const ebayUrl = `https://www.ebay.com/sch/i.html?_nkw=${searchTerm}&LH_BIN=1`
+  // eBay Canada + Buy It Now + Canada location
+  const ebayUrl =
+    `https://www.ebay.ca/sch/i.html` +
+    `?_nkw=${searchTerm}` +
+    `&LH_BIN=1` +
+    `&LH_PrefLoc=1` +
+    `&_sop=15`
 
-    window.open(ebayUrl, '_blank', 'noopener,noreferrer')
-  }
+  window.open(ebayUrl, '_blank', 'noopener,noreferrer')
+}
 
   // ---------------- DELETE ----------------
   const removeCard = (id: string) => {

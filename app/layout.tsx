@@ -4,14 +4,20 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 
-const geist = Geist({ subsets: ['latin'] })
-const geistMono = Geist_Mono({ subsets: ['latin'] })
+const geist = Geist({
+  subsets: ['latin'],
+  variable: '--font-geist',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
+})
 
 export const metadata: Metadata = {
   title: 'CardVault - Trading Card Analysis',
   description:
     'Analyze, track, and manage your trading card collection with real-time market data',
-  generator: 'v0.app',
 }
 
 export default function RootLayout({
@@ -20,19 +26,23 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={geist.className} suppressHydrationWarning>
-  <body className="antialiased min-h-screen">
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="dark"
-      enableSystem={false}
-      disableTransitionOnChange
+    <html
+      lang="en"
+      className={`${geist.variable} ${geistMono.variable}`}
+      suppressHydrationWarning
     >
-      {children}
-    </ThemeProvider>
+      <body className="font-sans antialiased min-h-screen">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
 
-    {process.env.NODE_ENV === 'production' && <Analytics />}
-  </body>
-</html>
+        {process.env.NODE_ENV === 'production' && <Analytics />}
+      </body>
+    </html>
   )
 }
