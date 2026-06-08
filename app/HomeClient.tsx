@@ -11,7 +11,7 @@ import { DashboardSection } from '@/components/sections/dashboard/dashboard-sect
 import { CardAnalysis } from '@/components/sections/card-analysis'
 import { TradeTree } from '@/components/sections/trade-tree'
 import { ChaseCards } from '@/components/sections/chase-cards'
-import { UpcomingSets } from '@/components/sections/upcoming-sets'
+import { UpcomingEvents } from '@/components/sections/upcoming-events'
 import { Rewards } from '@/components/sections/rewards'
 import { CollectionSection } from '@/components/sections/collection'
 import { AnalyticsSection } from '@/components/sections/analytics'
@@ -152,8 +152,8 @@ export default function Home() {
             <ChaseCards />
           )}
 
-          {activeTab === 'upcoming-sets' && (
-            <UpcomingSets />
+          {activeTab === 'upcoming-events' && (
+            <UpcomingEvents />
           )}
 
           {activeTab === 'rewards' && (
