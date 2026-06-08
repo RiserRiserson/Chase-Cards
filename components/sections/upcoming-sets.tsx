@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 type Category = 'NHL' | 'NFL' | 'NBA' | 'MLB' | 'Pokemon'
 
@@ -31,39 +31,38 @@ const DEFAULT_FILTERS: Record<Category, boolean> = {
 }
 
 export function UpcomingSets() {
+  const [mounted, setMounted] = useState(false)
+  const [filters, setFilters] = useState(DEFAULT_FILTERS)
 
-  // -----------------------------
-  // Persisted filters (localStorage)
-  // -----------------------------
-  const [filters, setFilters] = useState<Record<Category, boolean>>(() => {
-    if (typeof window === 'undefined') {
-      return DEFAULT_FILTERS
-    }
-
+  // ---------------- LOAD LOCALSTORAGE AFTER MOUNT ----------------
+  useEffect(() => {
     try {
       const saved = localStorage.getItem('upcomingSetsFilters')
-      return saved ? JSON.parse(saved) : DEFAULT_FILTERS
+      if (saved) {
+        setFilters(JSON.parse(saved))
+      }
     } catch {
-      return DEFAULT_FILTERS
+      // ignore
     }
-  })
+
+    setMounted(true)
+  }, [])
+
+  // ---------------- SAVE AFTER CHANGE ----------------
+  useEffect(() => {
+    if (!mounted) return
+
+    localStorage.setItem(
+      'upcomingSetsFilters',
+      JSON.stringify(filters)
+    )
+  }, [filters, mounted])
 
   const toggle = (category: Category) => {
-    setFilters(prev => {
-      const updated = {
-        ...prev,
-        [category]: !prev[category]
-      }
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(
-          'upcomingSetsFilters',
-          JSON.stringify(updated)
-        )
-      }
-
-      return updated
-    })
+    setFilters(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }))
   }
 
   const filteredSets = useMemo(() => {
@@ -85,7 +84,7 @@ export function UpcomingSets() {
   return (
     <div className="p-6 space-y-6">
 
-      {/* HEADER */}
+      {/* HEADER (stable render always) */}
       <div>
         <h2 className="text-xl font-semibold">Upcoming Sets</h2>
         <p className="text-muted-foreground mt-1">
@@ -93,57 +92,66 @@ export function UpcomingSets() {
         </p>
       </div>
 
-      {/* FILTERS */}
-      <div className="flex flex-wrap gap-2">
+      {/* LOADING GUARD (prevents mismatch flash) */}
+      {!mounted ? (
+        <div className="text-sm text-muted-foreground">
+          Loading...
+        </div>
+      ) : (
+        <>
+          {/* FILTERS */}
+          <div className="flex flex-wrap gap-2">
 
-        {(Object.keys(filters) as Category[]).map(cat => (
-          <button
-            key={cat}
-            onClick={() => toggle(cat)}
-            className={`
-              px-3 py-1 rounded-full text-sm border transition
-              ${filters[cat]
-                ? 'bg-primary text-primary-foreground border-transparent'
-                : 'bg-transparent border-border text-muted-foreground'
-              }
-            `}
-          >
-            {cat}
-          </button>
-        ))}
-
-      </div>
-
-      {/* LIST */}
-      <div className="space-y-3">
-
-        {filteredSets.length === 0 && (
-          <p className="text-muted-foreground text-sm">
-            No sets selected.
-          </p>
-        )}
-
-        {filteredSets.map((set, idx) => (
-          <div
-            key={idx}
-            className="border rounded-lg p-4 flex items-center justify-between bg-card"
-          >
-
-            <div>
-              <div className="font-medium">{set.name}</div>
-              <div className="text-sm text-muted-foreground">
-                {new Date(set.date).toLocaleDateString()}
-              </div>
-            </div>
-
-            <div className={`text-sm font-semibold ${categoryColor(set.category)}`}>
-              {set.category}
-            </div>
+            {(Object.keys(filters) as Category[]).map(cat => (
+              <button
+                key={cat}
+                onClick={() => toggle(cat)}
+                className={`
+                  px-3 py-1 rounded-full text-sm border transition
+                  ${filters[cat]
+                    ? 'bg-primary text-primary-foreground border-transparent'
+                    : 'bg-transparent border-border text-muted-foreground'
+                  }
+                `}
+              >
+                {cat}
+              </button>
+            ))}
 
           </div>
-        ))}
 
-      </div>
+          {/* LIST */}
+          <div className="space-y-3">
+
+            {filteredSets.length === 0 && (
+              <p className="text-muted-foreground text-sm">
+                No sets selected.
+              </p>
+            )}
+
+            {filteredSets.map((set, idx) => (
+              <div
+                key={idx}
+                className="border rounded-lg p-4 flex items-center justify-between bg-card"
+              >
+
+                <div>
+                  <div className="font-medium">{set.name}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {set.date}
+                  </div>
+                </div>
+
+                <div className={`text-sm font-semibold ${categoryColor(set.category)}`}>
+                  {set.category}
+                </div>
+
+              </div>
+            ))}
+
+          </div>
+        </>
+      )}
     </div>
   )
 }

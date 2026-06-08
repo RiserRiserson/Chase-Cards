@@ -1,9 +1,10 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { cn } from '@/lib/utils'
+
 import {
   Layers,
-  BarChart3,
-  Settings,
   Home,
   Plus,
   Search,
@@ -40,14 +41,20 @@ export function Sidebar({
   onAddCard,
   userEmail
 }: SidebarProps) {
+  const [mounted, setMounted] = useState(false)
 
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // IMPORTANT: always render same DOM structure
   const initials =
-    userEmail?.slice(0, 2).toUpperCase() || 'CC'
+    mounted && userEmail ? userEmail.slice(0, 2).toUpperCase() : 'CC'
 
   return (
     <aside className="flex flex-col w-64 border-r border-border bg-sidebar min-h-screen">
 
-      {/* HEADER */}
+      {/* APP HEADER */}
       <div className="flex items-center gap-2 px-6 py-5 border-b border-border">
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
           <Layers className="w-5 h-5 text-primary-foreground" />
@@ -58,52 +65,39 @@ export function Sidebar({
         </span>
       </div>
 
-      {/* ADD BUTTON */}
+      {/* ADD CARD BUTTON */}
       <div className="px-4 py-4">
-        <Button
-          className="w-full gap-2"
-          size="sm"
-          onClick={onAddCard}
-        >
+        <Button className="w-full gap-2" size="sm" onClick={onAddCard}>
           <Plus className="w-4 h-4" />
           Add Card
         </Button>
       </div>
 
-      {/* NAV */}
+      {/* NAVIGATION */}
       <nav className="flex-1 px-3 py-2">
         <ul className="space-y-1">
-
-          {navItems.map((item) => {
-            const isActive = activeTab === item.id
-
-            const base =
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors'
-
-            const activeClasses = 'bg-sidebar-accent text-primary'
-            const inactiveClasses =
-              'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-
-            return (
-              <li key={item.id}>
-                <button
-                  onClick={() => onTabChange(item.id)}
-                  className={`${base} ${isActive ? activeClasses : inactiveClasses}`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.label}
-                </button>
-              </li>
-            )
-          })}
-
+          {navItems.map((item) => (
+            <li key={item.id}>
+              <button
+                onClick={() => onTabChange(item.id)}
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                  activeTab === item.id
+                    ? 'bg-sidebar-accent text-primary'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                )}
+              >
+                <item.icon className="w-5 h-5" />
+                {item.label}
+              </button>
+            </li>
+          ))}
         </ul>
       </nav>
 
-      {/* USER */}
+      {/* USER AREA */}
       <div className="p-4 border-t border-border">
         <div className="flex items-center gap-3 px-3 py-2">
-
           <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
             {initials}
           </div>
@@ -116,10 +110,8 @@ export function Sidebar({
               Collector
             </p>
           </div>
-
         </div>
       </div>
-
     </aside>
   )
 }
