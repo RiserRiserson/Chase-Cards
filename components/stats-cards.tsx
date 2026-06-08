@@ -62,9 +62,9 @@ export function StatsCards() {
                   </span>
                 </div>
               </div>
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <stat.icon className="w-5 h-5 text-primary" />
-              </div>
+              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
+  <stat.icon className="w-5 h-5 text-muted-foreground" />
+</div>
             </div>
           </CardContent>
         </Card>

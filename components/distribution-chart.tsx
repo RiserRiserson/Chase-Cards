@@ -27,15 +27,21 @@ export function DistributionChart() {
     value,
   }))
 
-  const COLORS = ['oklch(0.88 0.18 95)', 'oklch(0.7 0.15 160)', 'oklch(0.6 0.15 260)']
+  // These colors are fine (data colors, not text/UI colors)
+  const COLORS = [
+    'oklch(0.88 0.18 95)',
+    'oklch(0.7 0.15 160)',
+    'oklch(0.6 0.15 260)',
+  ]
 
   return (
     <Card className="border-border">
       <CardHeader>
         <CardTitle className="text-lg">Collection by Type</CardTitle>
       </CardHeader>
+
       <CardContent>
-        <div className="h-[260px]">
+        <div className="h-65">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -48,20 +54,40 @@ export function DistributionChart() {
                 dataKey="value"
               >
                 {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
                 ))}
               </Pie>
+
+              {/* ✅ THEME-AWARE TOOLTIP */}
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'oklch(0.18 0.01 250)',
-                  border: '1px solid oklch(0.28 0.01 250)',
+                  backgroundColor: 'var(--card)',
+                  border: '1px solid var(--border)',
                   borderRadius: '8px',
-                  color: 'oklch(0.98 0 0)',
+                  color: 'var(--card-foreground)',
                 }}
-                formatter={(value: number) => [`$${value.toLocaleString()}`, 'Value']}
+                itemStyle={{
+                  color: 'var(--card-foreground)',
+                }}
+                labelStyle={{
+                  color: 'var(--foreground)',
+                }}
+                formatter={(value: number) => [
+                  `$${value.toLocaleString()}`,
+                  'Value',
+                ]}
               />
+
+              {/* ✅ THEME-AWARE LEGEND */}
               <Legend
-                formatter={(value) => <span style={{ color: 'oklch(0.98 0 0)' }}>{value}</span>}
+                formatter={(value) => (
+                  <span style={{ color: 'var(--foreground)' }}>
+                    {value}
+                  </span>
+                )}
               />
             </PieChart>
           </ResponsiveContainer>

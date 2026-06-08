@@ -42,7 +42,7 @@ export function CollectionModal({
       >
 
         {/* IMAGE */}
-        <div className="aspect-[2.5/3.5] bg-muted overflow-hidden">
+        <div className="aspect-2.5/3.5 bg-muted overflow-hidden">
           {selectedCard.image_url ? (
             <img
               src={selectedCard.image_url}
