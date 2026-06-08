@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 import { Sidebar } from '@/components/sidebar'
 import { Header } from '@/components/header'
@@ -21,14 +21,18 @@ import { supabase } from '@/lib/supabaseClient'
 
 export default function Home() {
   const router = useRouter()
-  const searchParams = useSearchParams()
 
-  // ✅ ACTIVE TAB NOW COMES FROM URL
-  const activeTab = searchParams.get('tab') || 'dashboard'
-
+  const [activeTab, setActiveTab] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [addOpen, setAddOpen] = useState(false)
+
+  // Restore tab from URL on first load (safe client-only)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+    if (tab) setActiveTab(tab)
+  }, [])
 
   // SESSION TRACKING
   useEffect(() => {
@@ -67,6 +71,12 @@ export default function Home() {
     router.push('/auth')
   }
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab)
+    router.push(`/?tab=${tab}`)
+    setSidebarOpen(false)
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
 
@@ -78,10 +88,7 @@ export default function Home() {
       >
         <Sidebar
           activeTab={activeTab}
-          onTabChange={(tab) => {
-            router.push(`/?tab=${tab}`)   // (temporary safe behavior)
-            setSidebarOpen(false)
-          }}
+          onTabChange={handleTabChange}
           onAddCard={() => setAddOpen(true)}
           userEmail={user?.email}
         />

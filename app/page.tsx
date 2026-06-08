@@ -1,10 +1,10 @@
-export const metadata = {
-  title: 'CardVault - Trading Card Analysis',
-  description: 'Analyze, track, and manage your trading card collection',
-}
-
+import { Suspense } from 'react'
 import HomeClient from './HomeClient'
 
 export default function Page() {
-  return <HomeClient />
+  return (
+    <Suspense fallback={<div />}>
+      <HomeClient />
+    </Suspense>
+  )
 }
