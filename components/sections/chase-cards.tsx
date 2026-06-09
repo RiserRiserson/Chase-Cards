@@ -8,6 +8,7 @@ type ChaseCard = {
   type: string
   image?: string
   query: string
+  maxPrice?: string
 }
 
 const STORAGE_KEY = 'chase_cards_list'
@@ -22,18 +23,16 @@ export function ChaseCards() {
   const [name, setName] = useState('')
   const [type, setType] = useState('')
   const [query, setQuery] = useState('')
+  const [maxPrice, setMaxPrice] = useState('')
 
   // ---------------- DRAG STATE ----------------
   const [draggedId, setDraggedId] = useState<string | null>(null)
 
-  // ---------------- HYDRATION SAFE LOAD ----------------
+  // ---------------- LOAD ----------------
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
-
-      if (saved) {
-        setCards(JSON.parse(saved))
-      }
+      if (saved) setCards(JSON.parse(saved))
     } catch (e) {
       console.error('Failed to load chase cards:', e)
     }
@@ -41,10 +40,9 @@ export function ChaseCards() {
     setMounted(true)
   }, [])
 
-  // ---------------- SAVE (ONLY AFTER MOUNT) ----------------
+  // ---------------- SAVE ----------------
   useEffect(() => {
     if (!mounted) return
-
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cards))
     } catch (e) {
@@ -61,17 +59,16 @@ export function ChaseCards() {
       name,
       type,
       query,
+      maxPrice: maxPrice || undefined,
       image: ''
     }
 
     setCards(prev => [...prev, newCard])
 
-    // reset form
     setName('')
     setType('')
     setQuery('')
-
-    // close modal
+    setMaxPrice('')
     setShowCreateModal(false)
   }
 
@@ -83,14 +80,10 @@ export function ChaseCards() {
       const draggedIndex = prev.findIndex(c => c.id === draggedId)
       const targetIndex = prev.findIndex(c => c.id === targetId)
 
-      if (draggedIndex === -1 || targetIndex === -1) {
-        return prev
-      }
+      if (draggedIndex === -1 || targetIndex === -1) return prev
 
       const updated = [...prev]
-
       const [removed] = updated.splice(draggedIndex, 1)
-
       updated.splice(targetIndex, 0, removed)
 
       return updated
@@ -103,12 +96,16 @@ export function ChaseCards() {
   const openEbaySearch = (card: ChaseCard) => {
     const searchTerm = encodeURIComponent(card.query || card.name)
 
-    const ebayUrl =
+    let ebayUrl =
       `https://www.ebay.ca/sch/i.html` +
       `?_nkw=${searchTerm}` +
-      `&LH_BIN=1` +
       `&LH_PrefLoc=1` +
       `&_sop=15`
+
+    // max price only
+    if (card.maxPrice) {
+      ebayUrl += `&_udhi=${encodeURIComponent(card.maxPrice)}`
+    }
 
     window.open(ebayUrl, '_blank', 'noopener,noreferrer')
   }
@@ -125,20 +122,15 @@ export function ChaseCards() {
       {/* HEADER */}
       <div>
         <h2 className="text-2xl font-semibold">Chase Cards</h2>
-
         <p className="text-sm text-muted-foreground mt-1">
-          Track cards you want and quickly search Buy It Now listings on eBay
+          Track cards and search eBay listings quickly
         </p>
       </div>
 
-      {/* LOADING STATE */}
       {!mounted ? (
-        <div className="text-sm text-muted-foreground">
-          Loading...
-        </div>
+        <div className="text-sm text-muted-foreground">Loading...</div>
       ) : (
         <>
-          {/* CREATE BUTTON */}
           <button
             onClick={() => setShowCreateModal(true)}
             className="px-3 py-2 text-sm rounded bg-primary text-primary-foreground"
@@ -146,19 +138,16 @@ export function ChaseCards() {
             Add Chase Card
           </button>
 
-          {/* CREATE MODAL */}
+          {/* MODAL */}
           {showCreateModal && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-
               <div className="bg-card border rounded-lg p-4 w-full max-w-md space-y-3">
 
-                <h3 className="font-semibold">
-                  Add Chase Card
-                </h3>
+                <h3 className="font-semibold">Add Chase Card</h3>
 
                 <input
                   className="w-full border rounded px-3 py-2 text-sm"
-                  placeholder="Card name (e.g. 2018 McDavid Young Guns PSA 10)"
+                  placeholder="Card name"
                   value={name}
                   onChange={e => setName(e.target.value)}
                 />
@@ -172,14 +161,20 @@ export function ChaseCards() {
 
                 <input
                   className="w-full border rounded px-3 py-2 text-sm"
-                  placeholder="Search term (eBay query)"
+                  placeholder="eBay search query"
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                 />
 
-                {/* ACTIONS */}
-                <div className="flex justify-end gap-2 pt-2">
+                <input
+                  className="w-full border rounded px-3 py-2 text-sm"
+                  placeholder="Max price (optional)"
+                  type="number"
+                  value={maxPrice}
+                  onChange={e => setMaxPrice(e.target.value)}
+                />
 
+                <div className="flex justify-end gap-2 pt-2">
                   <button
                     onClick={() => setShowCreateModal(false)}
                     className="px-3 py-1 text-sm border rounded"
@@ -193,7 +188,6 @@ export function ChaseCards() {
                   >
                     Save
                   </button>
-
                 </div>
 
               </div>
@@ -219,17 +213,24 @@ export function ChaseCards() {
                 onDrop={() => handleDrop(card.id)}
               >
 
-                {/* TOP ROW */}
+                {/* TOP */}
                 <div className="flex justify-between items-start">
-
                   <div>
-                    <div className="font-medium">
-                      {card.name}
+                    <div className="font-medium">{card.name}</div>
+
+                    <div className="text-sm text-muted-foreground">
+                      Type: {card.type}
                     </div>
 
-                    <div className="text-xs text-muted-foreground">
-                      {card.type}
+                    <div className="text-sm text-muted-foreground">
+                      Search: {card.query || card.name}
                     </div>
+
+                    {!card.query && (
+                      <div className="text-xs text-yellow-600">
+                        Using name as search fallback
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -242,14 +243,12 @@ export function ChaseCards() {
 
                 {/* ACTIONS */}
                 <div className="flex gap-2">
-
                   <button
                     onClick={() => openEbaySearch(card)}
                     className="px-3 py-1 text-sm rounded bg-muted border"
                   >
-                    Search eBay Buy It Now
+                    Search eBay
                   </button>
-
                 </div>
 
               </div>

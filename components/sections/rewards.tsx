@@ -176,10 +176,12 @@ export function Rewards() {
 
       {/* CREATE MODAL */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-card p-4 rounded-lg w-full max-w-md space-y-3">
 
-            <h3 className="font-semibold">Create Reward</h3>
+            <h3 className="font-semibold">
+              Create Reward
+            </h3>
 
             <input
               className="w-full border rounded px-3 py-2 text-sm"
@@ -188,23 +190,10 @@ export function Rewards() {
               onChange={e => setDraftTitle(e.target.value)}
             />
 
-            <div className="flex gap-2">
-              <input
-                className="flex-1 border rounded px-3 py-1 text-sm"
-                placeholder="Add task..."
-                value={draftTaskInput}
-                onChange={e => setDraftTaskInput(e.target.value)}
-              />
-              <button
-                onClick={addDraftTask}
-                className="px-3 py-1 text-sm rounded bg-muted border"
-              >
-                Add
-              </button>
-            </div>
-
-            {/* draft task list */}
+            {/* ADD TASK INPUT (MOVED TO BOTTOM OF MODAL FLOW) */}
             <div className="space-y-1">
+
+              {/* draft task list */}
               {draftTasks.map((t, i) => (
                 <div key={i} className="flex justify-between text-sm">
                   <span>{t}</span>
@@ -216,6 +205,24 @@ export function Rewards() {
                   </button>
                 </div>
               ))}
+
+              {/* input now at bottom */}
+              <div className="flex gap-2 pt-2">
+                <input
+                  className="flex-1 border rounded px-3 py-1 text-sm"
+                  placeholder="Add task..."
+                  value={draftTaskInput}
+                  onChange={e => setDraftTaskInput(e.target.value)}
+                />
+
+                <button
+                  onClick={addDraftTask}
+                  className="px-3 py-1 text-sm rounded bg-muted border"
+                >
+                  Add
+                </button>
+              </div>
+
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

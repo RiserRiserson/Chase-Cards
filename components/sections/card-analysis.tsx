@@ -271,7 +271,7 @@ export function CardAnalysis() {
         {image && (
           <div
             ref={containerRef}
-            className="relative border rounded-xl overflow-hidden bg-muted w-full max-w-sm aspect-[2.5/3.5]"
+            className="relative border rounded-xl overflow-hidden bg-muted w-full max-w-sm aspect-2.5/3.5"
           >
 
             {/* IMAGE LAYER (TRANSFORMED) */}
@@ -305,8 +305,8 @@ export function CardAnalysis() {
             {/* OVERLAY LAYER (FIXED) */}
             <div className="absolute inset-0 pointer-events-none">
 
-              <div className="absolute left-1/2 top-0 bottom-0 w-[2px] bg-red-500/70 -translate-x-1/2" />
-              <div className="absolute top-1/2 left-0 right-0 h-[2px] bg-red-500/70 -translate-y-1/2" />
+              <div className="absolute left-1/2 top-0 bottom-0 w-2px bg-red-500/70 -translate-x-1/2" />
+              <div className="absolute top-1/2 left-0 right-0 h-2px bg-red-500/70 -translate-y-1/2" />
 
               {showGrid && dims.width > 0 && dims.height > 0 && (
                 <GridOverlay width={dims.width} height={dims.height} />
