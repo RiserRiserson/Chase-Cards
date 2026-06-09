@@ -18,9 +18,45 @@ const STORAGE_KEY = 'chasecards_rewards'
 
 export function Rewards() {
   const [rewards, setRewards] = useState<Reward[]>([])
-  const [newTitle, setNewTitle] = useState('')
-  const [newTaskText, setNewTaskText] = useState('')
-  const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null)
+
+  // ---------------- CREATE MODAL STATE ----------------
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [draftTitle, setDraftTitle] = useState('')
+  const [draftTaskInput, setDraftTaskInput] = useState('')
+  const [draftTasks, setDraftTasks] = useState<string[]>([])
+
+  // ---------------- DRAG STATE ----------------
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+
+  const handleDrop = (targetId: string) => {
+    if (!draggedId || draggedId === targetId) return
+
+    setRewards(prev => {
+      const draggedIndex = prev.findIndex(r => r.id === draggedId)
+      const targetIndex = prev.findIndex(r => r.id === targetId)
+
+      if (draggedIndex === -1 || targetIndex === -1) return prev
+
+      const updated = [...prev]
+      const [removed] = updated.splice(draggedIndex, 1)
+      updated.splice(targetIndex, 0, removed)
+
+      return updated
+    })
+
+    setDraggedId(null)
+  }
+
+  // ---------------- ADD TASKS IN DRAFT ----------------
+  const addDraftTask = () => {
+    if (!draftTaskInput.trim()) return
+    setDraftTasks(prev => [...prev, draftTaskInput.trim()])
+    setDraftTaskInput('')
+  }
+
+  const removeDraftTask = (index: number) => {
+    setDraftTasks(prev => prev.filter((_, i) => i !== index))
+  }
 
   // only used for localStorage safety
   const [mounted, setMounted] = useState(false)
@@ -45,19 +81,30 @@ export function Rewards() {
 
   // ---------------- CREATE REWARD ----------------
   const addReward = () => {
-    if (!newTitle.trim()) return
+    if (!draftTitle.trim()) return
 
     const newReward: Reward = {
       id: crypto.randomUUID(),
-      title: newTitle,
-      tasks: []
+      title: draftTitle,
+      tasks: draftTasks.map(t => ({
+        id: crypto.randomUUID(),
+        text: t,
+        done: false
+      }))
     }
 
     setRewards(prev => [...prev, newReward])
-    setNewTitle('')
+
+    setDraftTitle('')
+    setDraftTasks([])
+    setDraftTaskInput('')
+    setShowCreateModal(false)
   }
 
-  // ---------------- ADD TASK ----------------
+  // ---------------- ADD TASK (existing rewards) ----------------
+  const [newTaskText, setNewTaskText] = useState('')
+  const [selectedRewardId, setSelectedRewardId] = useState<string | null>(null)
+
   const addTask = (rewardId: string) => {
     if (!newTaskText.trim()) return
 
@@ -111,7 +158,7 @@ export function Rewards() {
   return (
     <div className="p-6 space-y-6">
 
-      {/* HEADER (always identical SSR/client) */}
+      {/* HEADER */}
       <div>
         <h2 className="text-xl font-semibold">Rewards</h2>
         <p className="text-muted-foreground mt-1">
@@ -119,23 +166,77 @@ export function Rewards() {
         </p>
       </div>
 
-      {/* CREATE REWARD */}
-      <div className="border rounded-lg p-4 space-y-3 bg-card">
+      {/* CREATE BUTTON */}
+      <button
+        onClick={() => setShowCreateModal(true)}
+        className="px-3 py-2 text-sm rounded bg-primary text-primary-foreground"
+      >
+        Create Reward
+      </button>
 
-        <input
-          className="w-full border rounded px-3 py-2 text-sm"
-          placeholder="New reward title"
-          value={newTitle}
-          onChange={e => setNewTitle(e.target.value)}
-        />
+      {/* CREATE MODAL */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-card p-4 rounded-lg w-full max-w-md space-y-3">
 
-        <button
-          onClick={addReward}
-          className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
-        >
-          Create Reward
-        </button>
-      </div>
+            <h3 className="font-semibold">Create Reward</h3>
+
+            <input
+              className="w-full border rounded px-3 py-2 text-sm"
+              placeholder="Reward title"
+              value={draftTitle}
+              onChange={e => setDraftTitle(e.target.value)}
+            />
+
+            <div className="flex gap-2">
+              <input
+                className="flex-1 border rounded px-3 py-1 text-sm"
+                placeholder="Add task..."
+                value={draftTaskInput}
+                onChange={e => setDraftTaskInput(e.target.value)}
+              />
+              <button
+                onClick={addDraftTask}
+                className="px-3 py-1 text-sm rounded bg-muted border"
+              >
+                Add
+              </button>
+            </div>
+
+            {/* draft task list */}
+            <div className="space-y-1">
+              {draftTasks.map((t, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span>{t}</span>
+                  <button
+                    onClick={() => removeDraftTask(i)}
+                    className="text-red-500 text-xs"
+                  >
+                    remove
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-3 py-1 text-sm border rounded"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={addReward}
+                className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
+              >
+                Save
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* LIST */}
       <div className="space-y-4">
@@ -150,9 +251,12 @@ export function Rewards() {
           <div
             key={reward.id}
             className="border rounded-lg p-4 bg-card space-y-3"
+            draggable
+            onDragStart={() => setDraggedId(reward.id)}
+            onDragOver={e => e.preventDefault()}
+            onDrop={() => handleDrop(reward.id)}
           >
 
-            {/* HEADER */}
             <div className="flex items-center justify-between">
 
               <div className="space-y-1">

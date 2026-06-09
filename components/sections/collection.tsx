@@ -148,32 +148,37 @@ export function CollectionSection({ userId }: { userId?: string }) {
   }
 
   const handleImageUpload = async (file: File) => {
-    if (!selectedCard) return
+  if (!selectedCard) return
 
-    const filePath = `${selectedCard.id}-${Date.now()}`
+  const filePath = `${selectedCard.id}-${Date.now()}`
 
-    const { error } = await supabase.storage
-      .from('card-images')
-      .upload(filePath, file)
+  const { error } = await supabase.storage
+    .from('card-images')
+    .upload(filePath, file)
 
-    if (uploadError) {
-      console.error(uploadError)
-      return
-    }
-
-    const { data } = supabase.storage
-      .from('card-images')
-      .getPublicUrl(filePath)
-
-    const imageUrl = data.publicUrl
-
-    await supabase
-      .from('cards')
-      .update({ image_url: imageUrl })
-      .eq('id', selectedCard.id)
-
-    setSelectedCard({ ...selectedCard, image_url: imageUrl })
+  if (error) {
+    console.error(error)
+    return
   }
+
+  const { data } = supabase.storage
+    .from('card-images')
+    .getPublicUrl(filePath)
+
+  const imageUrl = data.publicUrl
+
+  const { error: updateError } = await supabase
+    .from('cards')
+    .update({ image_url: imageUrl })
+    .eq('id', selectedCard.id)
+
+  if (updateError) {
+    console.error(updateError)
+    return
+  }
+
+  setSelectedCard({ ...selectedCard, image_url: imageUrl })
+}
 
   if (loading) {
     return (
