@@ -12,6 +12,15 @@ type CardItem = {
   market_value: number
   quantity: number
   image_url?: string
+
+  rookie?: boolean
+  autograph?: boolean
+  memorabilia?: boolean
+  serial_numbered?: boolean
+  serial_number?: string
+
+  purchase_price?: number
+  sold?: boolean
 }
 
 export function CollectionSection({ userId }: { userId?: string }) {
@@ -23,6 +32,25 @@ export function CollectionSection({ userId }: { userId?: string }) {
   const [editValue, setEditValue] = useState<number>(0)
 
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // ACCORDION STATE
+  const [openSections, setOpenSections] = useState({
+    identity: true,
+    attributes: false,
+    condition: false,
+    purchase: false
+  })
+
+  const toggleSection = (key: keyof typeof openSections) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }))
+  }
+
+  const Chevron = ({ open }: { open: boolean }) => (
+    <span className="text-xs">{open ? '▼' : '▶'}</span>
+  )
 
   // VIEW MODE (persisted)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
@@ -124,7 +152,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
     const filePath = `${selectedCard.id}-${Date.now()}`
 
-    const { error: uploadError } = await supabase.storage
+    const { error } = await supabase.storage
       .from('card-images')
       .upload(filePath, file)
 
@@ -158,7 +186,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
   return (
     <div className="p-6 space-y-6">
 
-      {/* HEADER + TOGGLE */}
+      {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">Collection</h2>
@@ -171,9 +199,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
           <button
             onClick={() => setViewMode('grid')}
             className={`px-3 py-1 rounded text-sm ${
-              viewMode === 'grid'
-                ? 'bg-primary text-white'
-                : 'bg-muted'
+              viewMode === 'grid' ? 'bg-primary text-white' : 'bg-muted'
             }`}
           >
             Grid
@@ -182,9 +208,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
           <button
             onClick={() => setViewMode('list')}
             className={`px-3 py-1 rounded text-sm ${
-              viewMode === 'list'
-                ? 'bg-primary text-white'
-                : 'bg-muted'
+              viewMode === 'list' ? 'bg-primary text-white' : 'bg-muted'
             }`}
           >
             List
@@ -192,11 +216,10 @@ export function CollectionSection({ userId }: { userId?: string }) {
         </div>
       </div>
 
-      {/* GRID VIEW */}
+      {/* GRID */}
       {viewMode === 'grid' && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-
-          {cards.map((card) => (
+          {cards.map(card => (
             <div
               key={card.id}
               className="border rounded-xl bg-card overflow-hidden cursor-pointer hover:shadow-lg transition flex flex-col aspect-[2.2/3.2]"
@@ -209,11 +232,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
             >
               <div className="flex-7 bg-muted overflow-hidden">
                 {card.image_url ? (
-                  <img
-                    src={card.image_url}
-                    alt={card.name}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={card.image_url} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
                     No Image
@@ -221,19 +240,10 @@ export function CollectionSection({ userId }: { userId?: string }) {
                 )}
               </div>
 
-              <div className="flex-3 p-2 flex flex-col justify-between">
-                <div>
-                  <div className="font-medium text-sm truncate">
-                    {card.name}
-                  </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {card.game} • {card.set_name ?? card.set ?? 'Unknown Set'}
-                  </div>
-                </div>
-
-                <div className="flex justify-between text-xs mt-2">
-                  <span>${card.market_value ?? 0}</span>
-                  <span>Qty {card.quantity ?? 0}</span>
+              <div className="flex-3 p-2">
+                <div className="font-medium text-sm truncate">{card.name}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {card.game} • {card.set_name ?? card.set}
                 </div>
               </div>
             </div>
@@ -241,11 +251,10 @@ export function CollectionSection({ userId }: { userId?: string }) {
         </div>
       )}
 
-      {/* LIST VIEW */}
+      {/* LIST */}
       {viewMode === 'list' && (
         <div className="space-y-2">
-
-          {cards.map((card) => (
+          {cards.map(card => (
             <div
               key={card.id}
               onClick={() => {
@@ -257,17 +266,11 @@ export function CollectionSection({ userId }: { userId?: string }) {
               className="flex items-center justify-between p-3 border rounded bg-card hover:bg-muted cursor-pointer"
             >
               <div className="flex items-center gap-3">
-
                 <div className="w-10 h-10 bg-muted rounded overflow-hidden">
                   {card.image_url ? (
-                    <img
-                      src={card.image_url}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={card.image_url} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-xs flex items-center justify-center h-full">
-                      No
-                    </span>
+                    <span className="text-xs flex items-center justify-center h-full">No</span>
                   )}
                 </div>
 
@@ -277,7 +280,6 @@ export function CollectionSection({ userId }: { userId?: string }) {
                     {card.game} • {card.set_name ?? card.set}
                   </div>
                 </div>
-
               </div>
 
               <div className="text-right text-sm">
@@ -288,30 +290,32 @@ export function CollectionSection({ userId }: { userId?: string }) {
               </div>
             </div>
           ))}
-
         </div>
       )}
 
-      {/* MODAL */}
+      {/* SIDE DRAWER */}
       {selectedCard && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-          onClick={() => {
-            setSelectedCard(null)
-            setConfirmDelete(false)
-          }}
-        >
+        <div className="fixed inset-0 z-50 flex">
+
           <div
-            className="bg-background w-full max-w-md rounded-xl overflow-hidden shadow-2xl flex flex-col"
-            onClick={(e) => e.stopPropagation()}
+            className="flex-1 bg-black/60"
+            onClick={() => {
+              setSelectedCard(null)
+              setConfirmDelete(false)
+              setEditMode(false)
+            }}
+          />
+
+          <div
+            className="w-full max-w-md h-full bg-background shadow-2xl flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
           >
 
             {selectedCard.image_url && (
-              <div className="w-full max-h-[50vh] bg-muted flex items-center justify-center overflow-hidden">
+              <div className="w-full max-h-[40vh] bg-muted flex items-center justify-center overflow-hidden">
                 <img
                   src={selectedCard.image_url}
-                  alt={selectedCard.name}
-                  className="max-h-[50vh] w-auto object-contain"
+                  className="max-h-[40vh] w-auto object-contain"
                 />
               </div>
             )}
@@ -320,87 +324,126 @@ export function CollectionSection({ userId }: { userId?: string }) {
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => {
+                onChange={e => {
                   const file = e.target.files?.[0]
                   if (file) handleImageUpload(file)
                 }}
               />
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="flex-1 overflow-y-auto p-5 space-y-6">
 
+              {/* IDENTITY */}
               <div>
-                <h3 className="text-lg font-semibold">{selectedCard.name}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {selectedCard.game} • {selectedCard.set_name ?? selectedCard.set}
-                </p>
-              </div>
+                <button
+                  onClick={() => toggleSection('identity')}
+                  className="w-full flex justify-between text-sm font-semibold text-muted-foreground uppercase"
+                >
+                  <span>Identity</span>
+                  <Chevron open={openSections.identity} />
+                </button>
 
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Value</span>
-
-                {editMode ? (
-                  <input
-                    className="border rounded px-2 py-1 w-28 text-right"
-                    type="number"
-                    value={editValue}
-                    onChange={(e) => setEditValue(Number(e.target.value))}
-                  />
-                ) : (
-                  <span>${selectedCard.market_value ?? 0}</span>
+                {openSections.identity && (
+                  <div className="text-sm space-y-1 pl-2 pt-2">
+                    <div>{selectedCard.name}</div>
+                    <div>{selectedCard.game}</div>
+                    <div>{selectedCard.set_name ?? selectedCard.set}</div>
+                  </div>
                 )}
               </div>
 
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Quantity</span>
-                <span>{selectedCard.quantity ?? 0}</span>
-              </div>
-
-              {/* ACTIONS */}
-              <div className="flex items-center justify-between pt-3">
-
+              {/* ATTRIBUTES */}
+              <div>
                 <button
-                  className="flex-1 bg-blue-600 text-white py-2 rounded"
-                  onClick={() => {
-                    if (editMode) saveEdit()
-                    else setEditMode(true)
-                  }}
+                  onClick={() => toggleSection('attributes')}
+                  className="w-full flex justify-between text-sm font-semibold text-muted-foreground uppercase"
                 >
-                  {editMode ? 'Save' : 'Edit'}
+                  <span>Attributes</span>
+                  <Chevron open={openSections.attributes} />
                 </button>
 
-                <div className="ml-3 flex items-center gap-2">
+                {openSections.attributes && (
+                  <div className="text-sm space-y-1 pl-2 pt-2">
+                    <div>Rookie: {selectedCard.rookie ? 'Yes' : '—'}</div>
+                    <div>Auto: {selectedCard.autograph ? 'Yes' : '—'}</div>
+                    <div>Mem: {selectedCard.memorabilia ? 'Yes' : '—'}</div>
+                    <div>
+                      Serial: {selectedCard.serial_numbered ? selectedCard.serial_number : '—'}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                  {!confirmDelete ? (
-                    <button
-                      onClick={() => setConfirmDelete(true)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded"
-                      title="Delete"
-                    >
-                      🗑️
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => setConfirmDelete(false)}
-                        className="text-xs px-2 py-1 rounded bg-muted"
-                      >
-                        Cancel
-                      </button>
+              {/* PURCHASE */}
+              <div>
+                <button
+                  onClick={() => toggleSection('purchase')}
+                  className="w-full flex justify-between text-sm font-semibold text-muted-foreground uppercase"
+                >
+                  <span>Purchase</span>
+                  <Chevron open={openSections.purchase} />
+                </button>
 
-                      <button
-                        onClick={() => deleteCard(selectedCard.id)}
-                        className="text-xs px-2 py-1 rounded bg-red-600 text-white"
-                      >
-                        Confirm
-                      </button>
-                    </>
-                  )}
+                {openSections.purchase && (
+                  <div className="text-sm space-y-1 pl-2 pt-2">
+                    <div>Price: ${selectedCard.purchase_price ?? '—'}</div>
+                  </div>
+                )}
+              </div>
 
-                </div>
+              {/* CONDITION */}
+              <div>
+                <button
+                  onClick={() => toggleSection('condition')}
+                  className="w-full flex justify-between text-sm font-semibold text-muted-foreground uppercase"
+                >
+                  <span>Condition</span>
+                  <Chevron open={openSections.condition} />
+                </button>
+
+                {openSections.condition && (
+                  <div className="text-sm text-muted-foreground pl-2 pt-2">
+                    Not tracked yet
+                  </div>
+                )}
               </div>
 
             </div>
+
+            <div className="flex p-3 border-t gap-2">
+              <button
+                className="flex-1 bg-blue-600 text-white py-2 rounded"
+                onClick={() => setEditMode(!editMode)}
+              >
+                {editMode ? 'Save' : 'Edit'}
+              </button>
+
+              {!confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="p-2 text-red-500"
+                >
+                  🗑️
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="text-xs px-2 py-1 bg-muted rounded"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    onClick={() => deleteCard(selectedCard.id)}
+                    className="text-xs px-2 py-1 bg-red-600 text-white rounded"
+                  >
+                    Confirm
+                  </button>
+                </>
+              )}
+            </div>
+
           </div>
         </div>
       )}
