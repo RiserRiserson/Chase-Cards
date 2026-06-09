@@ -1,108 +1,57 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 
-type TradeEventType = 'origin' | 'trade' | 'sale' | 'grading'
+type TradeEventType = 'trade' | 'sale' | 'grading'
 
 type CardNode = {
   id: string
   cardName: string
+  imageUrl?: string
   acquiredDate: string
 
-  event?: {
+  event: {
     type: TradeEventType
-    fromUser?: string
-    toUser?: string
-    value?: number
-    grade?: string
     notes?: string
-    certId?: string
+    value?: number
   }
 
-  children?: CardNode[]
+  next?: CardNode
 }
 
-/**
- * SAMPLE TRADE TREE (branching enabled)
- * McDavid -> Draisaitl -> (branch A / branch B)
- */
-const MOCK_TREE: CardNode = {
-  id: '1',
-  cardName: 'Connor McDavid Rookie',
-  acquiredDate: '2024-01-10',
-  event: {
-    type: 'origin',
-    notes: 'Pulled from hobby pack'
-  },
-  children: [
-    {
-      id: '2',
-      cardName: 'Leon Draisaitl Auto',
-      acquiredDate: '2024-02-18',
+type TradeChain = {
+  id: string
+  root: CardNode
+}
+
+const MOCK_CHAINS: TradeChain[] = [
+  {
+    id: 'chain-1',
+    root: {
+      id: '1',
+      cardName: 'Connor McDavid Rookie',
+      imageUrl: '',
+      acquiredDate: '2024-01-10',
       event: {
         type: 'trade',
-        fromUser: 'CollectorA',
-        toUser: 'CollectorB',
-        notes: '1-for-1 trade'
+        notes: 'Pulled from pack'
       },
-      children: [
-        {
-          id: '3a',
-          cardName: 'NHL Patch Card /25',
-          acquiredDate: '2024-05-02',
-          event: {
-            type: 'trade',
-            fromUser: 'CollectorB',
-            toUser: 'CollectorC',
-            value: 420
-          },
-          children: [
-            {
-              id: '4a',
-              cardName: 'Wayne Gretzky Insert',
-              acquiredDate: '2024-09-01',
-              event: {
-                type: 'sale',
-                fromUser: 'CollectorC',
-                toUser: 'BuyerD',
-                value: 900
-              }
-            }
-          ]
-        },
-        {
-          id: '3b',
-          cardName: 'Connor Bedard Rookie',
-          acquiredDate: '2024-05-02',
-          event: {
-            type: 'trade',
-            fromUser: 'CollectorB',
-            toUser: 'CollectorE',
-            notes: 'Alternate trade path'
-          }
+      next: {
+        id: '2',
+        cardName: 'Leon Draisaitl Auto',
+        imageUrl: '',
+        acquiredDate: '2024-02-18',
+        event: {
+          type: 'trade',
+          notes: '1-for-1 trade'
         }
-      ]
+      }
     }
-  ]
-}
-
-function getColor(type: TradeEventType) {
-  switch (type) {
-    case 'origin':
-      return 'bg-gray-500'
-    case 'trade':
-      return 'bg-blue-500'
-    case 'sale':
-      return 'bg-green-500'
-    case 'grading':
-      return 'bg-purple-500'
   }
-}
+]
 
 function getLabel(type: TradeEventType) {
   switch (type) {
-    case 'origin':
-      return 'Origin'
     case 'trade':
       return 'Trade'
     case 'sale':
@@ -112,204 +61,332 @@ function getLabel(type: TradeEventType) {
   }
 }
 
-/**
- * Find path from root -> selected node
- */
-function findPath(
-  node: CardNode,
-  targetId: string,
-  path: CardNode[] = []
-): CardNode[] | null {
-  const newPath = [...path, node]
-
-  if (node.id === targetId) return newPath
-
-  for (const child of node.children ?? []) {
-    const result = findPath(child, targetId, newPath)
-    if (result) return result
-  }
-
-  return null
+function getLatest(node: CardNode): CardNode {
+  let current = node
+  while (current.next) current = current.next
+  return current
 }
 
-/**
- * Flatten subtree from a node
- */
-function flatten(node: CardNode): CardNode[] {
-  const result: CardNode[] = []
-  const stack: CardNode[] = [node]
+function buildHistory(node: CardNode): CardNode[] {
+  const out: CardNode[] = []
+  let current: CardNode | undefined = node
 
-  while (stack.length) {
-    const current = stack.shift()!
-    result.push(current)
-    if (current.children) {
-      stack.push(...current.children)
-    }
+  while (current) {
+    out.push(current)
+    current = current.next
   }
 
-  return result
+  return out
 }
 
 export function TradeTree() {
-  const [root] = useState<CardNode>(MOCK_TREE)
-  const [currentId, setCurrentId] = useState<string>(MOCK_TREE.id)
-  const [viewMode, setViewMode] = useState<'card' | 'history'>('card')
+  const [chains, setChains] = useState<TradeChain[]>(MOCK_CHAINS)
+  const [historyOpen, setHistoryOpen] = useState<string | null>(null)
 
-  const currentPath = useMemo(() => {
-    return findPath(root, currentId) ?? [root]
-  }, [root, currentId])
+  const [showModal, setShowModal] = useState(false)
+  const [modalMode, setModalMode] = useState<'new-chain' | 'new-node'>('new-chain')
+  const [activeChainId, setActiveChainId] = useState<string | null>(null)
 
-  const currentNode = currentPath[currentPath.length - 1]
+  const [name, setName] = useState('')
+  const [notes, setNotes] = useState('')
+  const [date, setDate] = useState('')
+
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+
+  const reset = () => {
+    setName('')
+    setNotes('')
+    setDate('')
+    setActiveChainId(null)
+  }
+
+  const addChain = () => {
+    if (!name || !date) return
+
+    const newChain: TradeChain = {
+      id: crypto.randomUUID(),
+      root: {
+        id: crypto.randomUUID(),
+        cardName: name,
+        imageUrl: '',
+        acquiredDate: date,
+        event: {
+          type: 'trade',
+          notes
+        }
+      }
+    }
+
+    setChains(prev => [...prev, newChain])
+    reset()
+    setShowModal(false)
+  }
+
+  const addNode = () => {
+    if (!activeChainId || !name || !date) return
+
+    const newNode: CardNode = {
+      id: crypto.randomUUID(),
+      cardName: name,
+      imageUrl: '',
+      acquiredDate: date,
+      event: {
+        type: 'trade',
+        notes
+      }
+    }
+
+    setChains(prev => {
+      const copy = structuredClone(prev)
+      const chain = copy.find(c => c.id === activeChainId)
+      if (!chain) return prev
+
+      let cur = chain.root
+      while (cur.next) cur = cur.next
+
+      cur.next = newNode
+
+      return copy
+    })
+
+    reset()
+    setShowModal(false)
+  }
+
+  const deleteChain = (id: string) => {
+    const ok = window.confirm('Delete this entire trade chain? This cannot be undone.')
+    if (!ok) return
+
+    setChains(prev => prev.filter(c => c.id !== id))
+  }
+
+  const deleteNode = (chainId: string, nodeId: string) => {
+    const ok = window.confirm('Delete this card from the chain?')
+    if (!ok) return
+
+    setChains(prev => {
+      const copy = structuredClone(prev)
+      const chain = copy.find(c => c.id === chainId)
+      if (!chain) return prev
+
+      const remove = (node?: CardNode): CardNode | undefined => {
+        if (!node) return undefined
+        if (node.id === nodeId) return node.next
+        node.next = remove(node.next)
+        return node
+      }
+
+      chain.root = remove(chain.root) as CardNode
+      return copy
+    })
+  }
+
+  const handleDrop = (targetId: string) => {
+    if (!draggedId || draggedId === targetId) return
+
+    setChains(prev => {
+      const arr = [...prev]
+
+      const from = arr.findIndex(c => c.id === draggedId)
+      const to = arr.findIndex(c => c.id === targetId)
+
+      if (from === -1 || to === -1) return prev
+
+      const moved = arr.splice(from, 1)[0]
+      arr.splice(to, 0, moved)
+
+      return arr
+    })
+
+    setDraggedId(null)
+  }
 
   return (
     <div className="p-6 space-y-6">
 
-      {/* HEADER */}
       <div>
         <h2 className="text-2xl font-semibold">Trade Tree</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Track how a card evolves through trades, sales, and grading paths
+          Multi-chain trade tracking system
         </p>
       </div>
 
-      {/* CURRENT CARD VIEW */}
-      {viewMode === 'card' && (
-        <div className="border rounded-lg p-6 bg-card space-y-4">
+      <button
+        onClick={() => {
+          setModalMode('new-chain')
+          setShowModal(true)
+        }}
+        className="px-3 py-2 text-sm rounded bg-primary text-primary-foreground"
+      >
+        Add Card
+      </button>
 
-          <div>
-            <div className="text-lg font-medium">
-              {currentNode.cardName}
-            </div>
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-card border rounded-lg p-4 w-full max-w-md space-y-3">
 
-            <div className="text-sm text-muted-foreground">
-              Acquired: {currentNode.acquiredDate}
-            </div>
-          </div>
+            <h3 className="font-semibold">
+              {modalMode === 'new-chain' ? 'Add New Card' : 'Add Node'}
+            </h3>
 
-          {/* EVENT DETAILS */}
-          {currentNode.event && (
-            <div className="text-sm text-muted-foreground space-y-1">
-              <div>
-                Type: {getLabel(currentNode.event.type)}
-              </div>
+            <input
+              className="w-full border rounded px-3 py-2 text-sm"
+              placeholder="Card name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+            />
 
-              {currentNode.event.notes && (
-                <div>Notes: {currentNode.event.notes}</div>
-              )}
+            <input
+              type="date"
+              className="w-full border rounded px-3 py-2 text-sm"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+            />
 
-              {currentNode.event.value && (
-                <div>Value: ${currentNode.event.value}</div>
-              )}
+            <input
+              className="w-full border rounded px-3 py-2 text-sm"
+              placeholder="Notes (optional)"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
 
-              {currentNode.event.grade && (
-                <div>Grade: {currentNode.event.grade}</div>
-              )}
-            </div>
-          )}
-
-          {/* ACTIONS */}
-          <div className="flex gap-3 flex-wrap">
-
-            <button
-              className="text-sm underline"
-              onClick={() => setViewMode('history')}
-            >
-              View History
-            </button>
-
-            {currentPath.length > 1 && (
+            <div className="flex justify-end gap-2 pt-2">
               <button
-                className="text-sm underline"
-                onClick={() =>
-                  setCurrentId(currentPath[currentPath.length - 2].id)
-                }
+                onClick={() => {
+                  setShowModal(false)
+                  reset()
+                }}
+                className="px-3 py-1 text-sm border rounded"
               >
-                ← Go Back
+                Cancel
               </button>
-            )}
-          </div>
 
-          {/* CHILDREN (TRADE OPTIONS) */}
-          {currentNode.children && currentNode.children.length > 0 && (
-            <div className="pt-4 border-t space-y-2">
-              <div className="text-sm font-medium">
-                Trade Options
+              <button
+                onClick={modalMode === 'new-chain' ? addChain : addNode}
+                className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
+              >
+                Save
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-4">
+
+        {chains.map(chain => {
+          const latest = getLatest(chain.root)
+          const history = buildHistory(chain.root)
+
+          return (
+            <div
+              key={chain.id}
+              className="border rounded-lg p-4 bg-card space-y-3"
+              draggable
+              onDragStart={() => setDraggedId(chain.id)}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => handleDrop(chain.id)}
+            >
+
+              <div className="text-lg font-medium">
+                {latest.cardName}
               </div>
 
-              {currentNode.children.map((child) => (
+              <div className="text-sm text-muted-foreground">
+                Acquired: {latest.acquiredDate}
+              </div>
+
+              <div className="flex gap-2 flex-wrap pt-2">
+
                 <button
-                  key={child.id}
-                  onClick={() => setCurrentId(child.id)}
-                  className="w-full text-left p-3 rounded border hover:bg-muted"
+                  onClick={() =>
+                    setHistoryOpen(historyOpen === chain.id ? null : chain.id)
+                  }
+                  className="px-3 py-1 text-sm border rounded"
                 >
-                  <div className="font-medium">
-                    {child.cardName}
-                  </div>
-
-                  <div className="text-xs text-muted-foreground">
-                    {child.event?.type} • {child.acquiredDate}
-                  </div>
+                  History
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* HISTORY VIEW */}
-      {viewMode === 'history' && (
-        <div className="space-y-6">
+                <button
+                  onClick={() => {
+                    setModalMode('new-node')
+                    setActiveChainId(chain.id)
+                    setShowModal(true)
+                  }}
+                  className="px-3 py-1 text-sm border rounded"
+                >
+                  Add Node
+                </button>
 
-          <div className="flex gap-2">
-            <button
-              className="text-sm underline"
-              onClick={() => setViewMode('card')}
-            >
-              Back to Card
-            </button>
-          </div>
+                <button
+                  onClick={() => deleteChain(chain.id)}
+                  className="px-3 py-1 text-sm text-red-500"
+                >
+                  Delete Chain
+                </button>
 
-          <div className="space-y-6 border-l pl-4">
-            {currentPath.map((node, index) => {
-              const isLast = index === currentPath.length - 1
+              </div>
 
-              return (
-                <div key={node.id} className="space-y-1">
+              {historyOpen === chain.id && (
+                <div className="border-l pl-4 space-y-6">
 
-                  <div className="flex items-center gap-2 flex-wrap">
+                  {history.map((node, index) => {
+                    const isLast = index === history.length - 1
 
-                    <div
-                      className={`w-3.5 h-3.5 rounded-full ${getColor(
-                        node.event?.type ?? 'origin'
-                      )}`}
-                    />
+                    return (
+                      <div key={node.id} className="flex gap-3 items-start">
 
-                    <span className="font-medium">
-                      {node.cardName}
-                    </span>
+                        {/* NODE TIMELINE MARKER */}
+                        <div className="flex flex-col items-center pt-1 relative">
 
-                    <span className="text-xs text-muted-foreground">
-                      {node.acquiredDate}
-                    </span>
-                  </div>
+                          <div className="w-3 h-3 rounded-full bg-blue-500 z-10" />
 
-                  {node.event?.notes && (
-                    <div className="text-sm text-muted-foreground pl-6">
-                      {node.event.notes}
-                    </div>
-                  )}
+                          {!isLast && (
+                            <div className="w-px flex-1 bg-border mt-1" />
+                          )}
 
-                  {!isLast && (
-                    <div className="text-xs text-muted-foreground pl-6">
-                      ↓
-                    </div>
-                  )}
+                        </div>
+
+                        {/* CONTENT */}
+                        <div className="flex-1">
+
+                          <div className="font-medium flex items-center gap-2">
+                            <span className="text-blue-500">●</span>
+                            {node.cardName}
+                          </div>
+
+                          <div className="text-xs text-muted-foreground">
+                            {node.acquiredDate} • {getLabel(node.event.type)}
+                          </div>
+
+                          {node.event.notes && (
+                            <div className="text-sm text-muted-foreground mt-1">
+                              {node.event.notes}
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => deleteNode(chain.id, node.id)}
+                            className="text-xs text-red-500 mt-2"
+                          >
+                            delete
+                          </button>
+
+                        </div>
+
+                      </div>
+                    )
+                  })}
+
                 </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+              )}
+
+            </div>
+          )
+        })}
+
+      </div>
     </div>
   )
 }
