@@ -102,12 +102,13 @@ export default function Home() {
         <main className="flex-1 p-6 overflow-auto">
 
           {/* HEADER */}
-          <div className="mb-6 space-y-4">
+          {activeTab === 'dashboard' && (
+  <div className="mb-6 space-y-4">
 
             <div>
               <h1 className="text-2xl font-bold">Dashboard</h1>
               <p className="text-muted-foreground mt-1">
-                TRACK your trading card collection performance
+                Tra your trading card collection performance
               </p>
             </div>
 
@@ -125,7 +126,8 @@ export default function Home() {
                 </button>
               </div>
             )}
-          </div>
+              </div>
+)}
 
           {/* TABS */}
           {activeTab === 'dashboard' && (

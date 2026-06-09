@@ -51,6 +51,9 @@ export function UpcomingEvents() {
 
   const [events, setEvents] = useState<EventItem[]>(DEFAULT_EVENTS)
 
+  // ---------------- MODAL STATE ----------------
+  const [showCreateModal, setShowCreateModal] = useState(false)
+
   const [newEvent, setNewEvent] = useState<EventItem>({
     name: '',
     date: '',
@@ -72,7 +75,9 @@ export function UpcomingEvents() {
       if (savedEvents) setEvents(JSON.parse(savedEvents))
 
       const savedEventFilters = localStorage.getItem('upcomingEventsEventFilters')
-      if (savedEventFilters) setEventFilters(JSON.parse(savedEventFilters))
+      if (savedEventFilters) {
+        setEventFilters(JSON.parse(savedEventFilters))
+      }
     } catch {}
 
     setMounted(true)
@@ -82,16 +87,25 @@ export function UpcomingEvents() {
 
   useEffect(() => {
     if (!mounted) return
-    localStorage.setItem('upcomingEventsFilters', JSON.stringify(filters))
+
+    localStorage.setItem(
+      'upcomingEventsFilters',
+      JSON.stringify(filters)
+    )
   }, [filters, mounted])
 
   useEffect(() => {
     if (!mounted) return
-    localStorage.setItem('upcomingEventsList', JSON.stringify(events))
+
+    localStorage.setItem(
+      'upcomingEventsList',
+      JSON.stringify(events)
+    )
   }, [events, mounted])
 
   useEffect(() => {
     if (!mounted) return
+
     localStorage.setItem(
       'upcomingEventsEventFilters',
       JSON.stringify(eventFilters)
@@ -114,7 +128,13 @@ export function UpcomingEvents() {
   }
 
   const addEvent = () => {
-    if (!newEvent.name || !newEvent.date || !newEvent.location) return
+    if (
+      !newEvent.name.trim() ||
+      !newEvent.date.trim() ||
+      !newEvent.location.trim()
+    ) {
+      return
+    }
 
     setEvents(prev => [...prev, newEvent])
 
@@ -123,6 +143,8 @@ export function UpcomingEvents() {
       date: '',
       location: ''
     })
+
+    setShowCreateModal(false)
   }
 
   const deleteEvent = (index: number) => {
@@ -141,11 +163,20 @@ export function UpcomingEvents() {
 
   const categoryColor = (cat: Category) => {
     switch (cat) {
-      case 'NHL': return 'text-blue-500'
-      case 'NFL': return 'text-green-500'
-      case 'NBA': return 'text-orange-500'
-      case 'MLB': return 'text-red-500'
-      case 'Pokemon': return 'text-purple-500'
+      case 'NHL':
+        return 'text-blue-500'
+
+      case 'NFL':
+        return 'text-green-500'
+
+      case 'NBA':
+        return 'text-orange-500'
+
+      case 'MLB':
+        return 'text-red-500'
+
+      case 'Pokemon':
+        return 'text-purple-500'
     }
   }
 
@@ -154,58 +185,89 @@ export function UpcomingEvents() {
 
       {/* HEADER */}
       <div>
-        <h2 className="text-xl font-semibold">Upcoming Events</h2>
+        <h2 className="text-2xl font-semibold">
+          Upcoming Events
+        </h2>
+
         <p className="text-muted-foreground mt-1">
           Track card shows, expos, and upcoming releases
         </p>
       </div>
 
       {!mounted ? (
-        <div className="text-sm text-muted-foreground">Loading...</div>
+        <div className="text-sm text-muted-foreground">
+          Loading...
+        </div>
       ) : (
         <>
-          {/* ================= EVENTS SECTION (FIRST) ================= */}
+          {/* ================= EVENTS SECTION ================= */}
           <div className="space-y-3 mt-20">
 
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Card Shows & Events</h3>
 
-              <button
-                onClick={toggleEvents}
-                className={`px-3 py-1 rounded text-sm border ${
-                  eventFilters.showEvents
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                {eventFilters.showEvents ? 'Hide' : 'Show'}
-              </button>
+              <h3 className="text-lg font-semibold">
+                Card Shows & Events
+              </h3>
+
+              <div className="flex gap-2">
+
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="px-3 py-1 rounded text-sm bg-primary text-primary-foreground"
+                >
+                  Add Event
+                </button>
+
+                <button
+                  onClick={toggleEvents}
+                  className={`px-3 py-1 rounded text-sm border ${
+                    eventFilters.showEvents
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  {eventFilters.showEvents ? 'Hide' : 'Show'}
+                </button>
+
+              </div>
             </div>
 
-            {eventFilters.showEvents && (
-              <>
-                {/* ADD EVENT */}
-                <div className="grid gap-2 border rounded-lg p-3 bg-card">
+            {/* CREATE MODAL */}
+            {showCreateModal && (
+              <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+                <div className="bg-card border rounded-lg p-4 w-full max-w-md space-y-3">
+
+                  <h3 className="font-semibold">
+                    Add Event
+                  </h3>
+
                   <input
-                    className="border rounded px-3 py-2 text-sm"
+                    className="w-full border rounded px-3 py-2 text-sm"
                     placeholder="Event name"
                     value={newEvent.name}
                     onChange={e =>
-                      setNewEvent(prev => ({ ...prev, name: e.target.value }))
+                      setNewEvent(prev => ({
+                        ...prev,
+                        name: e.target.value
+                      }))
                     }
                   />
 
                   <input
-                    className="border rounded px-3 py-2 text-sm"
+                    className="w-full border rounded px-3 py-2 text-sm"
                     placeholder="Date (YYYY-MM-DD)"
                     value={newEvent.date}
                     onChange={e =>
-                      setNewEvent(prev => ({ ...prev, date: e.target.value }))
+                      setNewEvent(prev => ({
+                        ...prev,
+                        date: e.target.value
+                      }))
                     }
                   />
 
                   <input
-                    className="border rounded px-3 py-2 text-sm"
+                    className="w-full border rounded px-3 py-2 text-sm"
                     placeholder="Location"
                     value={newEvent.location}
                     onChange={e =>
@@ -216,55 +278,78 @@ export function UpcomingEvents() {
                     }
                   />
 
-                  <button
-                    onClick={addEvent}
-                    className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
-                  >
-                    Add Event
-                  </button>
-                </div>
+                  {/* ACTIONS */}
+                  <div className="flex justify-end gap-2 pt-2">
 
-                {/* LIST */}
-                <div className="space-y-3">
-
-                  {filteredEvents.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      No events added.
-                    </p>
-                  )}
-
-                  {filteredEvents.map((event, idx) => (
-                    <div
-                      key={idx}
-                      className="border rounded-lg p-4 bg-card flex justify-between"
+                    <button
+                      onClick={() => setShowCreateModal(false)}
+                      className="px-3 py-1 text-sm border rounded"
                     >
-                      <div>
-                        <div className="font-medium">{event.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {event.date}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {event.location}
-                        </div>
+                      Cancel
+                    </button>
+
+                    <button
+                      onClick={addEvent}
+                      className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
+                    >
+                      Save
+                    </button>
+
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+            {eventFilters.showEvents && (
+              <div className="space-y-3">
+
+                {filteredEvents.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No events added.
+                  </p>
+                )}
+
+                {filteredEvents.map((event, idx) => (
+                  <div
+                    key={idx}
+                    className="border rounded-lg p-4 bg-card flex justify-between"
+                  >
+
+                    <div>
+                      <div className="font-medium">
+                        {event.name}
                       </div>
 
-                      <button
-                        onClick={() => deleteEvent(idx)}
-                        className="text-xs text-red-500"
-                      >
-                        Delete
-                      </button>
+                      <div className="text-sm text-muted-foreground">
+                        {event.date}
+                      </div>
+
+                      <div className="text-sm text-muted-foreground">
+                        {event.location}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </>
+
+                    <button
+                      onClick={() => deleteEvent(idx)}
+                      className="text-xs text-red-500"
+                    >
+                      Delete
+                    </button>
+
+                  </div>
+                ))}
+
+              </div>
             )}
           </div>
 
           {/* ================= UPCOMING RELEASES ================= */}
           <div className="space-y-4 mt-20">
 
-            <h3 className="text-lg font-semibold">Upcoming Releases</h3>
+            <h3 className="text-lg font-semibold">
+              Upcoming Releases
+            </h3>
 
             <div className="flex flex-wrap gap-2">
 
@@ -284,6 +369,7 @@ export function UpcomingEvents() {
                   {cat}
                 </button>
               ))}
+
             </div>
 
             <div className="space-y-3">
@@ -299,18 +385,26 @@ export function UpcomingEvents() {
                   key={idx}
                   className="border rounded-lg p-4 flex justify-between bg-card"
                 >
+
                   <div>
-                    <div className="font-medium">{set.name}</div>
+                    <div className="font-medium">
+                      {set.name}
+                    </div>
+
                     <div className="text-sm text-muted-foreground">
                       {set.date}
                     </div>
                   </div>
 
-                  <div className={`text-sm font-semibold ${categoryColor(set.category)}`}>
+                  <div
+                    className={`text-sm font-semibold ${categoryColor(set.category)}`}
+                  >
                     {set.category}
                   </div>
+
                 </div>
               ))}
+
             </div>
 
           </div>

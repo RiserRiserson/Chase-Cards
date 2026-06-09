@@ -5,21 +5,58 @@ import { supabase } from '@/lib/supabaseClient'
 
 type CardItem = {
   id: string
+
+  // IDENTITY
+  full_card_name?: string
+  year?: number
+  brand?: string
+  player?: string
+  card_number?: string
+  subset_parallel?: string
+  sport?: string
+
+  // LEGACY / COMPATIBILITY
   name: string
   game: string
   set_name?: string
   set?: string
-  market_value: number
-  quantity: number
-  image_url?: string
 
+  // ATTRIBUTES
   rookie?: boolean
-  autograph?: boolean
-  memorabilia?: boolean
   serial_numbered?: boolean
   serial_number?: string
+  memorabilia?: boolean
+  game_used?: boolean
+  autograph?: boolean
 
+  // CONDITION
+  condition_purchased?: string
+  current_condition?: string
+  grading_company?: string
+
+  // PURCHASE
+  purchase_date?: string
+  purchase_from?: string
   purchase_price?: number
+
+  // VALUE
+  estimated_value_cad?: number
+  value_date?: string
+  sales_history_query?: string
+
+  // SALES
+  card_sold?: boolean
+  sales_date?: string
+  sales_platform?: string
+  sales_amount?: number
+  fees?: number
+
+  // IMAGE
+  image_url?: string
+
+  // LEGACY VALUE FIELDS
+  market_value: number
+  quantity: number
   sold?: boolean
 }
 
@@ -194,7 +231,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Collection</h2>
+          <h2 className="text-2xl font-semibold">Collection</h2>
           <p className="text-sm text-muted-foreground">
             {cards.length} cards
           </p>
@@ -257,201 +294,232 @@ export function CollectionSection({ userId }: { userId?: string }) {
       )}
 
       {/* LIST */}
-      {viewMode === 'list' && (
-        <div className="space-y-2">
-          {cards.map(card => (
-            <div
-              key={card.id}
-              onClick={() => {
-                setSelectedCard(card)
-                setEditValue(card.market_value ?? 0)
-                setEditMode(false)
-                setConfirmDelete(false)
-              }}
-              className="flex items-center justify-between p-3 border rounded bg-card hover:bg-muted cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-muted rounded overflow-hidden">
-                  {card.image_url ? (
-                    <img src={card.image_url} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-xs flex items-center justify-center h-full">No</span>
-                  )}
-                </div>
+{viewMode === 'list' && (
+  <div className="border rounded-xl overflow-hidden bg-card">
 
-                <div>
-                  <div className="text-sm font-medium">{card.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {card.game} • {card.set_name ?? card.set}
-                  </div>
-                </div>
-              </div>
+    {/* HEADER */}
+    <div className="grid grid-cols-[40px_80px_2fr_1fr_1fr_100px_80px] gap-3 px-4 py-3 border-b bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 
-              <div className="text-right text-sm">
-                <div>${card.market_value ?? 0}</div>
-                <div className="text-xs text-muted-foreground">
-                  Qty {card.quantity ?? 0}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div></div>
+      <div>Image</div>
+      <div>Name</div>
+      <div>Game</div>
+      <div>Set</div>
+      <div>Value</div>
+      <div>Qty</div>
 
-      {/* SIDE DRAWER */}
-      {selectedCard && (
-        <div className="fixed inset-0 z-50 flex">
+    </div>
 
-          <div
-            className="flex-1 bg-black/60"
+    {/* ROWS */}
+    {cards.map(card => {
+      const isOpen = selectedCard?.id === card.id
+
+      return (
+        <div
+          key={card.id}
+          className="border-b last:border-b-0"
+        >
+
+          {/* MAIN ROW */}
+          <button
             onClick={() => {
-              setSelectedCard(null)
-              setConfirmDelete(false)
-              setEditMode(false)
-            }}
-          />
+              if (isOpen) {
+                setSelectedCard(null)
+                return
+              }
 
-          <div
-            className="w-full max-w-md h-full bg-background shadow-2xl flex flex-col overflow-hidden"
-            onClick={e => e.stopPropagation()}
+              setSelectedCard(card)
+              setEditValue(card.market_value ?? 0)
+              setEditMode(false)
+              setConfirmDelete(false)
+            }}
+            className="w-full grid grid-cols-[40px_80px_2fr_1fr_1fr_100px_80px] gap-3 px-4 py-3 items-center hover:bg-muted/30 transition text-left"
           >
 
-            {selectedCard.image_url && (
-              <div className="w-full max-h-[40vh] bg-muted flex items-center justify-center overflow-hidden">
+            {/* CHEVRON */}
+            <div className="text-xs text-muted-foreground">
+              {isOpen ? '▼' : '▶'}
+            </div>
+
+            {/* IMAGE */}
+            <div className="w-14 h-14 rounded border overflow-hidden bg-muted">
+              {card.image_url ? (
                 <img
-                  src={selectedCard.image_url}
-                  className="max-h-[40vh] w-auto object-contain"
+                  src={card.image_url}
+                  className="w-full h-full object-cover"
                 />
-              </div>
-            )}
-
-            <div className="p-3 border-b">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={e => {
-                  const file = e.target.files?.[0]
-                  if (file) handleImageUpload(file)
-                }}
-              />
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-5 space-y-6">
-
-              {/* IDENTITY */}
-              <div>
-                <button
-                  onClick={() => toggleSection('identity')}
-                  className="w-full flex justify-between text-sm font-semibold text-muted-foreground uppercase"
-                >
-                  <span>Identity</span>
-                  <Chevron open={openSections.identity} />
-                </button>
-
-                {openSections.identity && (
-                  <div className="text-sm space-y-1 pl-2 pt-2">
-                    <div>{selectedCard.name}</div>
-                    <div>{selectedCard.game}</div>
-                    <div>{selectedCard.set_name ?? selectedCard.set}</div>
-                  </div>
-                )}
-              </div>
-
-              {/* ATTRIBUTES */}
-              <div>
-                <button
-                  onClick={() => toggleSection('attributes')}
-                  className="w-full flex justify-between text-sm font-semibold text-muted-foreground uppercase"
-                >
-                  <span>Attributes</span>
-                  <Chevron open={openSections.attributes} />
-                </button>
-
-                {openSections.attributes && (
-                  <div className="text-sm space-y-1 pl-2 pt-2">
-                    <div>Rookie: {selectedCard.rookie ? 'Yes' : '—'}</div>
-                    <div>Auto: {selectedCard.autograph ? 'Yes' : '—'}</div>
-                    <div>Mem: {selectedCard.memorabilia ? 'Yes' : '—'}</div>
-                    <div>
-                      Serial: {selectedCard.serial_numbered ? selectedCard.serial_number : '—'}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* PURCHASE */}
-              <div>
-                <button
-                  onClick={() => toggleSection('purchase')}
-                  className="w-full flex justify-between text-sm font-semibold text-muted-foreground uppercase"
-                >
-                  <span>Purchase</span>
-                  <Chevron open={openSections.purchase} />
-                </button>
-
-                {openSections.purchase && (
-                  <div className="text-sm space-y-1 pl-2 pt-2">
-                    <div>Price: ${selectedCard.purchase_price ?? '—'}</div>
-                  </div>
-                )}
-              </div>
-
-              {/* CONDITION */}
-              <div>
-                <button
-                  onClick={() => toggleSection('condition')}
-                  className="w-full flex justify-between text-sm font-semibold text-muted-foreground uppercase"
-                >
-                  <span>Condition</span>
-                  <Chevron open={openSections.condition} />
-                </button>
-
-                {openSections.condition && (
-                  <div className="text-sm text-muted-foreground pl-2 pt-2">
-                    Not tracked yet
-                  </div>
-                )}
-              </div>
-
-            </div>
-
-            <div className="flex p-3 border-t gap-2">
-              <button
-                className="flex-1 bg-blue-600 text-white py-2 rounded"
-                onClick={() => setEditMode(!editMode)}
-              >
-                {editMode ? 'Save' : 'Edit'}
-              </button>
-
-              {!confirmDelete ? (
-                <button
-                  onClick={() => setConfirmDelete(true)}
-                  className="p-2 text-red-500"
-                >
-                  🗑️
-                </button>
               ) : (
-                <>
-                  <button
-                    onClick={() => setConfirmDelete(false)}
-                    className="text-xs px-2 py-1 bg-muted rounded"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    onClick={() => deleteCard(selectedCard.id)}
-                    className="text-xs px-2 py-1 bg-red-600 text-white rounded"
-                  >
-                    Confirm
-                  </button>
-                </>
+                <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">
+                  No Img
+                </div>
               )}
             </div>
 
-          </div>
+            {/* NAME */}
+            <div>
+              <div className="font-medium text-sm">
+                {card.name}
+              </div>
+
+              <div className="text-xs text-muted-foreground mt-1">
+                {card.rookie && 'RC '}
+                {card.autograph && 'AUTO '}
+                {card.memorabilia && 'MEM '}
+              </div>
+            </div>
+
+            {/* GAME */}
+            <div className="text-sm">
+              {card.game}
+            </div>
+
+            {/* SET */}
+            <div className="text-sm truncate">
+              {card.set_name ?? card.set}
+            </div>
+
+            {/* VALUE */}
+            <div className="text-sm font-medium">
+              ${card.market_value ?? 0}
+            </div>
+
+            {/* QUANTITY */}
+            <div className="text-sm">
+              {card.quantity ?? 0}
+            </div>
+
+          </button>
+
+          {/* EXPANDED CONTENT */}
+          {isOpen && (
+            <div className="border-t bg-muted/20 p-5">
+
+              <div className="grid md:grid-cols-[220px_1fr] gap-6">
+
+                {/* IMAGE + UPLOAD */}
+                <div className="space-y-3">
+
+                  <div className="aspect-2.5/3.5 rounded-lg overflow-hidden border bg-muted">
+                    {selectedCard?.image_url ? (
+                      <img
+                        src={selectedCard.image_url}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+                        No Image
+                      </div>
+                    )}
+                  </div>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (file) handleImageUpload(file)
+                    }}
+                  />
+
+                </div>
+
+                {/* DETAILS */}
+                <div className="space-y-6">
+
+                  {/* IDENTITY */}
+                  <div>
+                    <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                      Identity
+                    </div>
+
+                    <div className="space-y-1 text-sm">
+                      <div>{selectedCard?.name}</div>
+                      <div>{selectedCard?.game}</div>
+                      <div>{selectedCard?.set_name ?? selectedCard?.set}</div>
+                    </div>
+                  </div>
+
+                  {/* ATTRIBUTES */}
+                  <div>
+                    <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                      Attributes
+                    </div>
+
+                    <div className="space-y-1 text-sm">
+                      <div>Rookie: {selectedCard?.rookie ? 'Yes' : '—'}</div>
+                      <div>Autograph: {selectedCard?.autograph ? 'Yes' : '—'}</div>
+                      <div>Memorabilia: {selectedCard?.memorabilia ? 'Yes' : '—'}</div>
+                      <div>
+                        Serial:
+                        {' '}
+                        {selectedCard?.serial_numbered
+                          ? selectedCard.serial_number
+                          : '—'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* PURCHASE */}
+                  <div>
+                    <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                      Purchase
+                    </div>
+
+                    <div className="text-sm">
+                      ${selectedCard?.purchase_price ?? '—'}
+                    </div>
+                  </div>
+
+                  {/* ACTIONS */}
+                  <div className="flex gap-2 pt-2">
+
+                    <button
+                      className="px-4 py-2 rounded bg-blue-600 text-white text-sm"
+                      onClick={() => setEditMode(!editMode)}
+                    >
+                      {editMode ? 'Save' : 'Edit'}
+                    </button>
+
+                    {!confirmDelete ? (
+                      <button
+                        onClick={() => setConfirmDelete(true)}
+                        className="px-4 py-2 rounded border text-red-500 text-sm"
+                      >
+                        Delete
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setConfirmDelete(false)}
+                          className="px-4 py-2 rounded border text-sm"
+                        >
+                          Cancel
+                        </button>
+
+                        <button
+                          onClick={() => deleteCard(selectedCard!.id)}
+                          className="px-4 py-2 rounded bg-red-600 text-white text-sm"
+                        >
+                          Confirm Delete
+                        </button>
+                      </>
+                    )}
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
         </div>
-      )}
+      )
+    })}
+
+  </div>
+)}
 
     </div>
   )

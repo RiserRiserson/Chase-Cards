@@ -160,7 +160,7 @@ export function Rewards() {
 
       {/* HEADER */}
       <div>
-        <h2 className="text-xl font-semibold">Rewards</h2>
+        <h2 className="text-2xl font-semibold">Rewards</h2>
         <p className="text-muted-foreground mt-1">
           Set goals and complete tasks to unlock rewards
         </p>

@@ -16,14 +16,21 @@ export function ChaseCards() {
   const [cards, setCards] = useState<ChaseCard[]>([])
   const [mounted, setMounted] = useState(false)
 
+  // ---------------- CREATE MODAL STATE ----------------
+  const [showCreateModal, setShowCreateModal] = useState(false)
+
   const [name, setName] = useState('')
   const [type, setType] = useState('')
   const [query, setQuery] = useState('')
+
+  // ---------------- DRAG STATE ----------------
+  const [draggedId, setDraggedId] = useState<string | null>(null)
 
   // ---------------- HYDRATION SAFE LOAD ----------------
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
+
       if (saved) {
         setCards(JSON.parse(saved))
       }
@@ -58,9 +65,38 @@ export function ChaseCards() {
     }
 
     setCards(prev => [...prev, newCard])
+
+    // reset form
     setName('')
     setType('')
     setQuery('')
+
+    // close modal
+    setShowCreateModal(false)
+  }
+
+  // ---------------- DRAG + DROP ----------------
+  const handleDrop = (targetId: string) => {
+    if (!draggedId || draggedId === targetId) return
+
+    setCards(prev => {
+      const draggedIndex = prev.findIndex(c => c.id === draggedId)
+      const targetIndex = prev.findIndex(c => c.id === targetId)
+
+      if (draggedIndex === -1 || targetIndex === -1) {
+        return prev
+      }
+
+      const updated = [...prev]
+
+      const [removed] = updated.splice(draggedIndex, 1)
+
+      updated.splice(targetIndex, 0, removed)
+
+      return updated
+    })
+
+    setDraggedId(null)
   }
 
   // ---------------- EBAY SEARCH ----------------
@@ -82,56 +118,87 @@ export function ChaseCards() {
     setCards(prev => prev.filter(c => c.id !== id))
   }
 
-  // ---------------- CRITICAL: UNIFIED RENDER STRUCTURE ----------------
+  // ---------------- RENDER ----------------
   return (
     <div className="p-6 space-y-6">
 
-      {/* HEADER (ALWAYS RENDERED SAME SHAPE) */}
+      {/* HEADER */}
       <div>
-        <h2 className="text-xl font-semibold">Chase Cards</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-2xl font-semibold">Chase Cards</h2>
+
+        <p className="text-sm text-muted-foreground mt-1">
           Track cards you want and quickly search Buy It Now listings on eBay
         </p>
       </div>
 
-      {/* LOADING STATE (NO LAYOUT SHIFT) */}
+      {/* LOADING STATE */}
       {!mounted ? (
         <div className="text-sm text-muted-foreground">
           Loading...
         </div>
       ) : (
         <>
-          {/* ADD FORM */}
-          <div className="border rounded-lg p-4 space-y-3 bg-card">
+          {/* CREATE BUTTON */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-3 py-2 text-sm rounded bg-primary text-primary-foreground"
+          >
+            Add Chase Card
+          </button>
 
-            <input
-              className="w-full border rounded px-3 py-2 text-sm"
-              placeholder="Card name (e.g. 2018 McDavid Young Guns PSA 10)"
-              value={name}
-              onChange={e => setName(e.target.value)}
-            />
+          {/* CREATE MODAL */}
+          {showCreateModal && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
 
-            <input
-              className="w-full border rounded px-3 py-2 text-sm"
-              placeholder="Card type (e.g. Hockey, Basketball)"
-              value={type}
-              onChange={e => setType(e.target.value)}
-            />
+              <div className="bg-card border rounded-lg p-4 w-full max-w-md space-y-3">
 
-            <input
-              className="w-full border rounded px-3 py-2 text-sm"
-              placeholder="Search term (eBay query)"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-            />
+                <h3 className="font-semibold">
+                  Add Chase Card
+                </h3>
 
-            <button
-              onClick={addCard}
-              className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
-            >
-              Add Chase Card
-            </button>
-          </div>
+                <input
+                  className="w-full border rounded px-3 py-2 text-sm"
+                  placeholder="Card name (e.g. 2018 McDavid Young Guns PSA 10)"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                />
+
+                <input
+                  className="w-full border rounded px-3 py-2 text-sm"
+                  placeholder="Card type (e.g. Hockey, Basketball)"
+                  value={type}
+                  onChange={e => setType(e.target.value)}
+                />
+
+                <input
+                  className="w-full border rounded px-3 py-2 text-sm"
+                  placeholder="Search term (eBay query)"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                />
+
+                {/* ACTIONS */}
+                <div className="flex justify-end gap-2 pt-2">
+
+                  <button
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-3 py-1 text-sm border rounded"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    onClick={addCard}
+                    className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
+                  >
+                    Save
+                  </button>
+
+                </div>
+
+              </div>
+            </div>
+          )}
 
           {/* LIST */}
           <div className="space-y-4">
@@ -146,13 +213,20 @@ export function ChaseCards() {
               <div
                 key={card.id}
                 className="border rounded-lg p-4 bg-card space-y-3"
+                draggable
+                onDragStart={() => setDraggedId(card.id)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => handleDrop(card.id)}
               >
 
                 {/* TOP ROW */}
                 <div className="flex justify-between items-start">
 
                   <div>
-                    <div className="font-medium">{card.name}</div>
+                    <div className="font-medium">
+                      {card.name}
+                    </div>
+
                     <div className="text-xs text-muted-foreground">
                       {card.type}
                     </div>
@@ -180,6 +254,7 @@ export function ChaseCards() {
 
               </div>
             ))}
+
           </div>
         </>
       )}
