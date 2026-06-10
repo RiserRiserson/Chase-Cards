@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { UploadPanel } from './UploadPanel'
+import { useRef, useState } from 'react'
+import { UploadPanel, UploadPanelHandle } from './UploadPanel'
 import { analyzeCardImage } from './utils/gradinghelpers'
 import { ImageViewer } from './ImageViewer'
 
@@ -14,6 +14,8 @@ type AnalysisMode = {
 }
 
 export function CardAnalysisLayout() {
+  const uploadRef = useRef<UploadPanelHandle | null>(null)
+
   const [image, setImage] = useState<string | null>(null)
   const [heatmap, setHeatmap] = useState<string | null>(null)
 
@@ -23,11 +25,11 @@ export function CardAnalysisLayout() {
   const [finalGrade, setFinalGrade] = useState<number | null>(null)
 
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>({
-    grid: true,
-    heatmap: true,
-    centering: true,
-    sharpness: true,
-    surface: true
+    grid: false,
+    heatmap: false,
+    centering: false,
+    sharpness: false,
+    surface: false
   })
 
   // ---------------- IMAGE UPLOAD ----------------
@@ -72,16 +74,21 @@ export function CardAnalysisLayout() {
         <div>
           <h2 className="text-2xl font-semibold">Card Analysis</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Upload a card to begin grading analysis
+            Select a card image to begin analysis
           </p>
         </div>
 
         <div className="border rounded-xl p-6 bg-card space-y-4">
-          <UploadPanel onImageUpload={handleImageUpload} />
+
+          {/* Hidden file input controlled via ref */}
+          <UploadPanel
+            ref={uploadRef}
+            onImageUpload={handleImageUpload}
+          />
 
           <button
-            onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement | null)?.click()}
-            className="px-4 py-2 rounded bg-yellow-400 text-black font-medium"
+            onClick={() => uploadRef.current?.triggerFileSelect()}
+            className="px-4 py-2 rounded bg-yellow-400 text-black font-medium hover:bg-yellow-300 transition"
           >
             Choose Card
           </button>
@@ -106,8 +113,8 @@ export function CardAnalysisLayout() {
         </p>
       </div>
 
-      {/* TOOLBAR */}
-      <div className="flex flex-wrap gap-2">
+      {/* TOOLBAR ROW */}
+      <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-card">
 
         <button
           onClick={() => toggleMode('grid')}
@@ -115,7 +122,7 @@ export function CardAnalysisLayout() {
             analysisMode.grid ? 'bg-yellow-400 text-black' : 'bg-muted'
           }`}
         >
-          Grid Overlay
+          Grid
         </button>
 
         <button
@@ -186,6 +193,7 @@ export function CardAnalysisLayout() {
               Final Grade: <b>{finalGrade}/10 ({getLetterGrade(finalGrade)})</b>
             </div>
           )}
+
         </div>
 
       </div>
