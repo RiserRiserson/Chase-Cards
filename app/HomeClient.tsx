@@ -8,7 +8,7 @@ import { Header } from '@/components/header'
 import { AddCardModal } from '@/components/add-card-modal'
 
 import { DashboardSection } from '@/components/sections/dashboard/dashboard-section'
-import { CardAnalysis } from '@/components/sections/card-analysis'
+import { CardAnalysisLayout } from '@/components/card-analysis/CardAnalysisLayout'
 import { TradeTree } from '@/components/sections/trade-tree'
 import { ChaseCards } from '@/components/sections/chase-cards'
 import { UpcomingEvents } from '@/components/sections/upcoming-events'
@@ -108,7 +108,7 @@ export default function Home() {
             <div>
               <h1 className="text-2xl font-bold">Dashboard</h1>
               <p className="text-muted-foreground mt-1">
-                Tra your trading card collection performance
+                Track your trading card collection performance
               </p>
             </div>
 
@@ -143,8 +143,8 @@ export default function Home() {
           )}
 
           {activeTab === 'card-analysis' && (
-            <CardAnalysis />
-          )}
+  <CardAnalysisLayout />
+)}
 
           {activeTab === 'trade-tree' && (
             <TradeTree />
