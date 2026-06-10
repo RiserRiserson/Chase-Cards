@@ -50,17 +50,6 @@ const MOCK_CHAINS: TradeChain[] = [
   }
 ]
 
-function getLabel(type: TradeEventType) {
-  switch (type) {
-    case 'trade':
-      return 'Trade'
-    case 'sale':
-      return 'Sale'
-    case 'grading':
-      return 'Graded'
-  }
-}
-
 function getLatest(node: CardNode): CardNode {
   let current = node
   while (current.next) current = current.next
@@ -79,17 +68,24 @@ function buildHistory(node: CardNode): CardNode[] {
   return out
 }
 
-export function TradeTree() {
+export function CardChain() {
   const [chains, setChains] = useState<TradeChain[]>(MOCK_CHAINS)
   const [historyOpen, setHistoryOpen] = useState<string | null>(null)
 
   const [showModal, setShowModal] = useState(false)
-  const [modalMode, setModalMode] = useState<'new-chain' | 'new-node'>('new-chain')
+  const [modalMode, setModalMode] = useState<
+    'new-chain' | 'new-node' | 'edit-node'
+  >('new-chain')
+
   const [activeChainId, setActiveChainId] = useState<string | null>(null)
+
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+  const [editingChainId, setEditingChainId] = useState<string | null>(null)
 
   const [name, setName] = useState('')
   const [notes, setNotes] = useState('')
   const [date, setDate] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
 
   const [draggedId, setDraggedId] = useState<string | null>(null)
 
@@ -97,7 +93,26 @@ export function TradeTree() {
     setName('')
     setNotes('')
     setDate('')
+    setImageUrl('')
     setActiveChainId(null)
+    setEditingNodeId(null)
+    setEditingChainId(null)
+  }
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0]
+
+    if (!file) return
+
+    const reader = new FileReader()
+
+    reader.onloadend = () => {
+      setImageUrl(reader.result as string)
+    }
+
+    reader.readAsDataURL(file)
   }
 
   const addChain = () => {
@@ -108,7 +123,7 @@ export function TradeTree() {
       root: {
         id: crypto.randomUUID(),
         cardName: name,
-        imageUrl: '',
+        imageUrl,
         acquiredDate: date,
         event: {
           type: 'trade',
@@ -118,6 +133,7 @@ export function TradeTree() {
     }
 
     setChains(prev => [...prev, newChain])
+
     reset()
     setShowModal(false)
   }
@@ -128,7 +144,7 @@ export function TradeTree() {
     const newNode: CardNode = {
       id: crypto.randomUUID(),
       cardName: name,
-      imageUrl: '',
+      imageUrl,
       acquiredDate: date,
       event: {
         type: 'trade',
@@ -138,11 +154,16 @@ export function TradeTree() {
 
     setChains(prev => {
       const copy = structuredClone(prev)
+
       const chain = copy.find(c => c.id === activeChainId)
+
       if (!chain) return prev
 
       let cur = chain.root
-      while (cur.next) cur = cur.next
+
+      while (cur.next) {
+        cur = cur.next
+      }
 
       cur.next = newNode
 
@@ -153,30 +174,88 @@ export function TradeTree() {
     setShowModal(false)
   }
 
+  const saveEditNode = () => {
+    if (!editingChainId || !editingNodeId || !name || !date) return
+
+    setChains(prev => {
+      const copy = structuredClone(prev)
+
+      const chain = copy.find(c => c.id === editingChainId)
+
+      if (!chain) return prev
+
+      const updateNode = (
+        node?: CardNode
+      ): CardNode | undefined => {
+        if (!node) return undefined
+
+        if (node.id === editingNodeId) {
+          return {
+            ...node,
+            cardName: name,
+            imageUrl,
+            acquiredDate: date,
+            event: {
+              ...node.event,
+              notes
+            }
+          }
+        }
+
+        node.next = updateNode(node.next)
+
+        return node
+      }
+
+      chain.root = updateNode(chain.root) as CardNode
+
+      return copy
+    })
+
+    reset()
+    setShowModal(false)
+  }
+
   const deleteChain = (id: string) => {
-    const ok = window.confirm('Delete this entire trade chain? This cannot be undone.')
+    const ok = window.confirm(
+      'Delete this entire trade chain? This cannot be undone.'
+    )
+
     if (!ok) return
 
     setChains(prev => prev.filter(c => c.id !== id))
   }
 
   const deleteNode = (chainId: string, nodeId: string) => {
-    const ok = window.confirm('Delete this card from the chain?')
+    const ok = window.confirm(
+      'Delete this card from the chain?'
+    )
+
     if (!ok) return
 
     setChains(prev => {
       const copy = structuredClone(prev)
+
       const chain = copy.find(c => c.id === chainId)
+
       if (!chain) return prev
 
-      const remove = (node?: CardNode): CardNode | undefined => {
+      const remove = (
+        node?: CardNode
+      ): CardNode | undefined => {
         if (!node) return undefined
-        if (node.id === nodeId) return node.next
+
+        if (node.id === nodeId) {
+          return node.next
+        }
+
         node.next = remove(node.next)
+
         return node
       }
 
       chain.root = remove(chain.root) as CardNode
+
       return copy
     })
   }
@@ -193,6 +272,7 @@ export function TradeTree() {
       if (from === -1 || to === -1) return prev
 
       const moved = arr.splice(from, 1)[0]
+
       arr.splice(to, 0, moved)
 
       return arr
@@ -205,7 +285,10 @@ export function TradeTree() {
     <div className="p-6 space-y-6">
 
       <div>
-        <h2 className="text-2xl font-semibold">Trade Tree</h2>
+        <h2 className="text-2xl font-semibold">
+          Card Chain
+        </h2>
+
         <p className="text-sm text-muted-foreground mt-1">
           Multi-chain trade tracking system
         </p>
@@ -226,7 +309,11 @@ export function TradeTree() {
           <div className="bg-card border rounded-lg p-4 w-full max-w-md space-y-3">
 
             <h3 className="font-semibold">
-              {modalMode === 'new-chain' ? 'Add New Card' : 'Add Node'}
+              {modalMode === 'new-chain'
+                ? 'Add New Card'
+                : modalMode === 'edit-node'
+                ? 'Edit Node'
+                : 'Add Node'}
             </h3>
 
             <input
@@ -244,6 +331,21 @@ export function TradeTree() {
             />
 
             <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="w-full border rounded px-3 py-2 text-sm"
+            />
+
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt="Preview"
+                className="w-28 h-40 object-cover rounded border"
+              />
+            )}
+
+            <input
               className="w-full border rounded px-3 py-2 text-sm"
               placeholder="Notes (optional)"
               value={notes}
@@ -251,6 +353,7 @@ export function TradeTree() {
             />
 
             <div className="flex justify-end gap-2 pt-2">
+
               <button
                 onClick={() => {
                   setShowModal(false)
@@ -262,11 +365,18 @@ export function TradeTree() {
               </button>
 
               <button
-                onClick={modalMode === 'new-chain' ? addChain : addNode}
+                onClick={
+                  modalMode === 'new-chain'
+                    ? addChain
+                    : modalMode === 'edit-node'
+                    ? saveEditNode
+                    : addNode
+                }
                 className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
               >
                 Save
               </button>
+
             </div>
 
           </div>
@@ -289,19 +399,41 @@ export function TradeTree() {
               onDrop={() => handleDrop(chain.id)}
             >
 
-              <div className="text-lg font-medium">
-                {latest.cardName}
-              </div>
+              <div className="flex gap-4 items-start">
 
-              <div className="text-sm text-muted-foreground">
-                Acquired: {latest.acquiredDate}
+                {latest.imageUrl ? (
+                  <img
+                    src={latest.imageUrl}
+                    alt={latest.cardName}
+                    className="w-20 h-28 object-cover rounded border"
+                  />
+                ) : (
+                  <div className="w-20 h-28 rounded border bg-muted" />
+                )}
+
+                <div>
+
+                  <div className="text-lg font-medium">
+                    {latest.cardName}
+                  </div>
+
+                  <div className="text-sm text-muted-foreground">
+                    Acquired: {latest.acquiredDate}
+                  </div>
+
+                </div>
+
               </div>
 
               <div className="flex gap-2 flex-wrap pt-2">
 
                 <button
                   onClick={() =>
-                    setHistoryOpen(historyOpen === chain.id ? null : chain.id)
+                    setHistoryOpen(
+                      historyOpen === chain.id
+                        ? null
+                        : chain.id
+                    )
                   }
                   className="px-3 py-1 text-sm border rounded"
                 >
@@ -332,46 +464,91 @@ export function TradeTree() {
                 <div className="border-l pl-4 space-y-6">
 
                   {history.map((node, index) => {
-                    const isLast = index === history.length - 1
+                    const isLast =
+                      index === history.length - 1
 
                     return (
-                      <div key={node.id} className="flex gap-3 items-start">
+                      <div
+                        key={node.id}
+                        className="flex gap-3 items-start"
+                      >
 
-                        {/* NODE TIMELINE MARKER */}
                         <div className="flex flex-col items-center pt-1 relative">
-
-                          <div className="w-3 h-3 rounded-full bg-blue-500 z-10" />
+                          <div className="w-3 h-3 rounded-full bg-primary z-10" />
 
                           {!isLast && (
                             <div className="w-px flex-1 bg-border mt-1" />
                           )}
-
                         </div>
 
-                        {/* CONTENT */}
                         <div className="flex-1">
 
-                          <div className="font-medium flex items-center gap-2">
-                            <span className="text-blue-500">●</span>
-                            {node.cardName}
-                          </div>
+                          <div className="flex gap-4 items-start">
 
-                          <div className="text-xs text-muted-foreground">
-                            {node.acquiredDate} • {getLabel(node.event.type)}
-                          </div>
+                            {node.imageUrl ? (
+                              <img
+                                src={node.imageUrl}
+                                alt={node.cardName}
+                                className="w-20 h-28 object-cover rounded border"
+                              />
+                            ) : (
+                              <div className="w-20 h-28 rounded border bg-muted" />
+                            )}
 
-                          {node.event.notes && (
-                            <div className="text-sm text-muted-foreground mt-1">
-                              {node.event.notes}
+                            <div className="flex-1">
+
+                              <div className="font-medium">
+                                {node.cardName}
+                              </div>
+
+                              <div className="text-xs text-muted-foreground">
+                                {node.acquiredDate}
+                              </div>
+
+                              {node.event.notes && (
+                                <div className="text-sm text-muted-foreground mt-1">
+                                  {node.event.notes}
+                                </div>
+                              )}
+
+                              <div className="flex gap-3 mt-2">
+
+                                <button
+                                  onClick={() => {
+                                    setModalMode('edit-node')
+
+                                    setEditingChainId(chain.id)
+                                    setEditingNodeId(node.id)
+
+                                    setName(node.cardName)
+                                    setDate(node.acquiredDate)
+                                    setNotes(node.event.notes || '')
+                                    setImageUrl(node.imageUrl || '')
+
+                                    setShowModal(true)
+                                  }}
+                                  className="text-xs text-blue-500"
+                                >
+                                  edit
+                                </button>
+
+                                <button
+                                  onClick={() =>
+                                    deleteNode(
+                                      chain.id,
+                                      node.id
+                                    )
+                                  }
+                                  className="text-xs text-red-500"
+                                >
+                                  delete
+                                </button>
+
+                              </div>
+
                             </div>
-                          )}
 
-                          <button
-                            onClick={() => deleteNode(chain.id, node.id)}
-                            className="text-xs text-red-500 mt-2"
-                          >
-                            delete
-                          </button>
+                          </div>
 
                         </div>
 

@@ -9,13 +9,12 @@ import { AddCardModal } from '@/components/add-card-modal'
 
 import { DashboardSection } from '@/components/sections/dashboard/dashboard-section'
 import { CardAnalysisLayout } from '@/components/card-analysis/CardAnalysisLayout'
-import { TradeTree } from '@/components/sections/trade-tree'
+import { CardChain } from '@/components/sections/card-chain'
 import { ChaseCards } from '@/components/sections/chase-cards'
 import { UpcomingEvents } from '@/components/sections/upcoming-events'
 import { Rewards } from '@/components/sections/rewards'
 import { CollectionSection } from '@/components/sections/collection'
 import { AnalyticsSection } from '@/components/sections/analytics'
-import { SettingsSection } from '@/components/sections/settings'
 
 import { supabase } from '@/lib/supabaseClient'
 
@@ -27,11 +26,33 @@ export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [addOpen, setAddOpen] = useState(false)
 
-  // Restore tab from URL on first load (safe client-only)
+  // Restore tab from URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const tab = params.get('tab')
-    if (tab) setActiveTab(tab)
+
+    let tab = params.get('tab')?.trim()
+
+    // Legacy cleanup
+    if (tab === 'trade-tree') {
+      tab = 'card-chain'
+    }
+
+    const validTabs = [
+      'dashboard',
+      'collection',
+      'analytics',
+      'card-analysis',
+      'card-chain',
+      'chase-cards',
+      'upcoming-events',
+      'rewards'
+    ]
+
+    if (tab && validTabs.includes(tab)) {
+      setActiveTab(tab)
+    } else {
+      setActiveTab('dashboard')
+    }
   }, [])
 
   // SESSION TRACKING
@@ -72,8 +93,15 @@ export default function Home() {
   }
 
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab)
-    router.push(`/?tab=${tab}`)
+    const normalizedTab =
+      tab.trim() === 'trade-tree'
+        ? 'card-chain'
+        : tab.trim()
+
+    setActiveTab(normalizedTab)
+
+    router.push(`/?tab=${normalizedTab}`)
+
     setSidebarOpen(false)
   }
 
@@ -101,66 +129,56 @@ export default function Home() {
 
         <main className="flex-1 p-6 overflow-auto">
 
-          {/* HEADER */}
+          
+          {/* DASHBOARD HEADER */}
           {activeTab === 'dashboard' && (
-  <div className="mb-6 space-y-4">
+            <div className="mb-6 space-y-4">
 
-            <div>
-              <h1 className="text-2xl font-bold">Dashboard</h1>
-              <p className="text-muted-foreground mt-1">
-                Track your trading card collection performance
-              </p>
+              <div>
+                <h1 className="text-2xl font-bold">Dashboard</h1>
+                <p className="text-muted-foreground mt-1">
+                  Track your trading card collection performance
+                </p>
+              </div>
+
+              {user && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Logged in as: {user.email}
+                  </span>
+
+                  <button
+                    onClick={handleSignOut}
+                    className="px-3 py-1 rounded bg-red-600 text-white text-xs"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              )}
+
             </div>
-
-            {user && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  Logged in as: {user.email}
-                </span>
-
-                <button
-                  onClick={handleSignOut}
-                  className="px-3 py-1 rounded bg-red-600 text-white text-xs"
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
-              </div>
-)}
-
-          {/* TABS */}
-          {activeTab === 'dashboard' && (
-            <DashboardSection userId={user?.id} />
           )}
 
-          {activeTab === 'collection' && (
-            <CollectionSection userId={user?.id} />
-          )}
-
-          {activeTab === 'analytics' && (
-            <AnalyticsSection />
-          )}
-
-          {activeTab === 'card-analysis' && (
+          {/* PAGE CONTENT */}
+{activeTab === 'dashboard' ? (
+  <DashboardSection userId={user?.id} />
+) : activeTab === 'collection' ? (
+  <CollectionSection userId={user?.id} />
+) : activeTab === 'analytics' ? (
+  <AnalyticsSection />
+) : activeTab === 'card-analysis' ? (
   <CardAnalysisLayout />
+) : activeTab === 'card-chain' ? (
+  <CardChain />
+) : activeTab === 'chase-cards' ? (
+  <ChaseCards />
+) : activeTab === 'upcoming-events' ? (
+  <UpcomingEvents />
+) : activeTab === 'rewards' ? (
+  <Rewards />
+) : (
+  <DashboardSection userId={user?.id} />
 )}
-
-          {activeTab === 'trade-tree' && (
-            <TradeTree />
-          )}
-
-          {activeTab === 'chase-cards' && (
-            <ChaseCards />
-          )}
-
-          {activeTab === 'upcoming-events' && (
-            <UpcomingEvents />
-          )}
-
-          {activeTab === 'rewards' && (
-            <Rewards />
-          )}
 
         </main>
       </div>

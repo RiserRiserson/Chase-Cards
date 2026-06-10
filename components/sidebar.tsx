@@ -27,7 +27,7 @@ const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
   { id: 'collection', label: 'Collection', icon: Layers },
   { id: 'card-analysis', label: 'Card Analysis', icon: Search },
-  { id: 'trade-tree', label: 'Trade Tree', icon: GitBranch },
+  { id: 'trade-tree', label: 'Card Chain', icon: GitBranch },
   { id: 'chase-cards', label: 'Chase Cards', icon: Sparkles },
   { id: 'upcoming-events', label: 'Upcoming Events', icon: Calendar },
   { id: 'rewards', label: 'Rewards', icon: Gift },
