@@ -65,6 +65,7 @@ const RELEASE_WINDOWS: ReleaseWindow[] = [
 
 /** ---------------- EVENTS (USER-DEFINED) ---------------- */
 type EventItem = {
+  id: string
   name: string
   date: string
   location: string
@@ -81,6 +82,10 @@ const DEFAULT_FILTERS: Record<Category, boolean> = {
   Pokemon: true
 }
 
+const STORAGE_EVENTS_KEY = 'upcomingEventsList'
+const STORAGE_FILTERS_KEY = 'upcomingEventsFilters'
+const STORAGE_EVENT_FILTERS_KEY = 'upcomingEventsEventFilters'
+
 export function UpcomingEvents() {
   const [mounted, setMounted] = useState(false)
 
@@ -89,7 +94,10 @@ export function UpcomingEvents() {
 
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  const [newEvent, setNewEvent] = useState<EventItem>({
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  const [form, setForm] = useState<EventItem>({
+    id: '',
     name: '',
     date: '',
     location: ''
@@ -102,13 +110,13 @@ export function UpcomingEvents() {
   /** ---------------- LOAD ---------------- */
   useEffect(() => {
     try {
-      const savedSets = localStorage.getItem('upcomingEventsFilters')
-      if (savedSets) setFilters(JSON.parse(savedSets))
+      const savedFilters = localStorage.getItem(STORAGE_FILTERS_KEY)
+      if (savedFilters) setFilters(JSON.parse(savedFilters))
 
-      const savedEvents = localStorage.getItem('upcomingEventsList')
+      const savedEvents = localStorage.getItem(STORAGE_EVENTS_KEY)
       if (savedEvents) setEvents(JSON.parse(savedEvents))
 
-      const savedEventFilters = localStorage.getItem('upcomingEventsEventFilters')
+      const savedEventFilters = localStorage.getItem(STORAGE_EVENT_FILTERS_KEY)
       if (savedEventFilters) setEventFilters(JSON.parse(savedEventFilters))
     } catch {}
 
@@ -118,17 +126,20 @@ export function UpcomingEvents() {
   /** ---------------- SAVE ---------------- */
   useEffect(() => {
     if (!mounted) return
-    localStorage.setItem('upcomingEventsFilters', JSON.stringify(filters))
+    localStorage.setItem(STORAGE_FILTERS_KEY, JSON.stringify(filters))
   }, [filters, mounted])
 
   useEffect(() => {
     if (!mounted) return
-    localStorage.setItem('upcomingEventsList', JSON.stringify(events))
+    localStorage.setItem(STORAGE_EVENTS_KEY, JSON.stringify(events))
   }, [events, mounted])
 
   useEffect(() => {
     if (!mounted) return
-    localStorage.setItem('upcomingEventsEventFilters', JSON.stringify(eventFilters))
+    localStorage.setItem(
+      STORAGE_EVENT_FILTERS_KEY,
+      JSON.stringify(eventFilters)
+    )
   }, [eventFilters, mounted])
 
   /** ---------------- HELPERS ---------------- */
@@ -145,20 +156,74 @@ export function UpcomingEvents() {
     }))
   }
 
+  const resetForm = () => {
+    setForm({
+      id: '',
+      name: '',
+      date: '',
+      location: ''
+    })
+    setEditingId(null)
+  }
+
+  const openCreate = () => {
+    resetForm()
+    setEditingId(null)
+    setShowCreateModal(true)
+  }
+
+  const startEdit = (event: EventItem) => {
+    setEditingId(event.id)
+    setForm({
+      id: event.id,
+      name: event.name,
+      date: event.date,
+      location: event.location
+    })
+    setShowCreateModal(true)
+  }
+
   const addEvent = () => {
-    if (
-      !newEvent.name.trim() ||
-      !newEvent.date.trim() ||
-      !newEvent.location.trim()
-    ) return
+    if (!form.name.trim() || !form.date.trim() || !form.location.trim()) return
+
+    const newEvent: EventItem = {
+      id: crypto.randomUUID(),
+      name: form.name,
+      date: form.date,
+      location: form.location
+    }
 
     setEvents(prev => [...prev, newEvent])
-    setNewEvent({ name: '', date: '', location: '' })
+
+    resetForm()
     setShowCreateModal(false)
   }
 
-  const deleteEvent = (index: number) => {
-    setEvents(prev => prev.filter((_, i) => i !== index))
+  const saveEdit = () => {
+    if (!editingId) return
+
+    setEvents(prev =>
+      prev.map(ev =>
+        ev.id === editingId
+          ? {
+              ...ev,
+              name: form.name,
+              date: form.date,
+              location: form.location
+            }
+          : ev
+      )
+    )
+
+    resetForm()
+    setShowCreateModal(false)
+  }
+
+  const deleteEvent = (id: string) => {
+    const ok = window.confirm('Delete this event?')
+    if (!ok) return
+
+    setEvents(prev => prev.filter(ev => ev.id !== id))
   }
 
   /** ---------------- DERIVE RELEASE WINDOWS ---------------- */
@@ -200,10 +265,13 @@ export function UpcomingEvents() {
     }
   }
 
+  if (!mounted) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading...</div>
+  }
+
   return (
     <div className="p-6 space-y-10">
 
-      {/* HEADER */}
       <div>
         <h2 className="text-2xl font-semibold">Upcoming Events</h2>
         <p className="text-muted-foreground mt-1">
@@ -211,154 +279,175 @@ export function UpcomingEvents() {
         </p>
       </div>
 
-      {!mounted ? (
-        <div className="text-sm text-muted-foreground">Loading...</div>
-      ) : (
-        <>
-          {/* ================= EVENTS ================= */}
-          <div className="space-y-3 mt-10">
+      {/* ================= EVENTS ================= */}
+      <div className="space-y-3 mt-10">
 
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Card Shows & Events</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Card Shows & Events</h3>
 
-              <div className="flex gap-2">
+          <div className="flex gap-2">
+            <button
+              onClick={openCreate}
+              className="px-3 py-1 rounded text-sm bg-primary text-primary-foreground"
+            >
+              Add Event
+            </button>
+
+            <button
+              onClick={toggleEvents}
+              className={`px-3 py-1 rounded text-sm border ${
+                eventFilters.showEvents
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground'
+              }`}
+            >
+              {eventFilters.showEvents ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        </div>
+
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-card border rounded-lg p-4 w-full max-w-md space-y-3">
+
+              <h3 className="font-semibold">
+                {editingId ? 'Edit Event' : 'Add Event'}
+              </h3>
+
+              <input
+                className="w-full border rounded px-3 py-2 text-sm"
+                placeholder="Event name"
+                value={form.name}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, name: e.target.value }))
+                }
+              />
+
+              <input
+                className="w-full border rounded px-3 py-2 text-sm"
+                placeholder="Date (YYYY-MM-DD)"
+                value={form.date}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, date: e.target.value }))
+                }
+              />
+
+              <input
+                className="w-full border rounded px-3 py-2 text-sm"
+                placeholder="Location"
+                value={form.location}
+                onChange={e =>
+                  setForm(prev => ({ ...prev, location: e.target.value }))
+                }
+              />
+
+              <div className="flex justify-end gap-2 pt-2">
                 <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="px-3 py-1 rounded text-sm bg-primary text-primary-foreground"
+                  onClick={() => {
+                    setShowCreateModal(false)
+                    resetForm()
+                  }}
+                  className="px-3 py-1 text-sm border rounded"
                 >
-                  Add Event
+                  Cancel
                 </button>
 
                 <button
-                  onClick={toggleEvents}
-                  className={`px-3 py-1 rounded text-sm border ${
-                    eventFilters.showEvents
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground'
-                  }`}
+                  onClick={editingId ? saveEdit : addEvent}
+                  className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
                 >
-                  {eventFilters.showEvents ? 'Hide' : 'Show'}
+                  Save
                 </button>
               </div>
             </div>
+          </div>
+        )}
 
-            {showCreateModal && (
-              <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-                <div className="bg-card border rounded-lg p-4 w-full max-w-md space-y-3">
-                  <h3 className="font-semibold">Add Event</h3>
-
-                  <input
-                    className="w-full border rounded px-3 py-2 text-sm"
-                    placeholder="Event name"
-                    value={newEvent.name}
-                    onChange={e =>
-                      setNewEvent(prev => ({ ...prev, name: e.target.value }))
-                    }
-                  />
-
-                  <input
-                    className="w-full border rounded px-3 py-2 text-sm"
-                    placeholder="Date (YYYY-MM-DD)"
-                    value={newEvent.date}
-                    onChange={e =>
-                      setNewEvent(prev => ({ ...prev, date: e.target.value }))
-                    }
-                  />
-
-                  <input
-                    className="w-full border rounded px-3 py-2 text-sm"
-                    placeholder="Location"
-                    value={newEvent.location}
-                    onChange={e =>
-                      setNewEvent(prev => ({ ...prev, location: e.target.value }))
-                    }
-                  />
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <button
-                      onClick={() => setShowCreateModal(false)}
-                      className="px-3 py-1 text-sm border rounded"
-                    >
-                      Cancel
-                    </button>
-
-                    <button
-                      onClick={addEvent}
-                      className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
-                    >
-                      Save
-                    </button>
-                  </div>
-                </div>
-              </div>
+        {eventFilters.showEvents && (
+          <div className="space-y-3">
+            {filteredEvents.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No events added.
+              </p>
             )}
 
-            {eventFilters.showEvents && (
-              <div className="space-y-3">
-                {filteredEvents.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No events added.
-                  </p>
-                )}
-
-                {filteredEvents.map((event, idx) => (
-                  <div key={idx} className="border rounded-lg p-4 bg-card">
-                    <div className="font-medium">{event.name}</div>
-                    <div className="text-sm text-muted-foreground">{event.date}</div>
-                    <div className="text-sm text-muted-foreground">{event.location}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ================= RELEASE WINDOWS ================= */}
-          <div className="space-y-4 mt-10">
-
-            <h3 className="text-lg font-semibold">
-              Release Windows (Typical Cycle)
-            </h3>
-
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(filters) as Category[]).map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => toggleCategory(cat)}
-                  className={`px-3 py-1 rounded-full text-sm border ${
-                    filters[cat]
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            <div className="space-y-3">
-              {derivedReleases.map((r, idx) => (
-                <div
-                  key={idx}
-                  className="border rounded-lg p-4 flex justify-between bg-card"
-                >
-                  <div>
-                    <div className="font-medium">{r.name}</div>
-
-                    <div className="text-sm text-muted-foreground">
-                      {r.months.join(', ')}
-                    </div>
-                  </div>
-
-                  <div className={`text-sm font-semibold ${categoryColor(r.category)}`}>
-                    {r.category}
-                  </div>
+            {filteredEvents.map(event => (
+              <div key={event.id} className="border rounded-lg p-4 bg-card">
+                <div className="font-medium">{event.name}</div>
+                <div className="text-sm text-muted-foreground">
+                  {event.date}
                 </div>
-              ))}
-            </div>
+                <div className="text-sm text-muted-foreground">
+                  {event.location}
+                </div>
 
+                <div className="flex gap-3 mt-2">
+                  <button
+                    onClick={() => startEdit(event)}
+                    className="text-xs text-blue-500"
+                  >
+                    edit
+                  </button>
+
+                  <button
+                    onClick={() => deleteEvent(event.id)}
+                    className="text-xs text-red-500"
+                  >
+                    delete
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        </>
-      )}
+        )}
+      </div>
+
+      {/* ================= RELEASE WINDOWS ================= */}
+      <div className="space-y-4 mt-10">
+
+        <h3 className="text-lg font-semibold">
+          Release Windows (Typical Cycle)
+        </h3>
+
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(filters) as Category[]).map(cat => (
+            <button
+              key={cat}
+              onClick={() => toggleCategory(cat)}
+              className={`px-3 py-1 rounded-full text-sm border ${
+                filters[cat]
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-3">
+          {derivedReleases.map((r, idx) => (
+            <div
+              key={idx}
+              className="border rounded-lg p-4 flex justify-between bg-card"
+            >
+              <div>
+                <div className="font-medium">{r.name}</div>
+                <div className="text-sm text-muted-foreground">
+                  {r.months.join(', ')}
+                </div>
+              </div>
+
+              <div
+                className={`text-sm font-semibold ${categoryColor(r.category)}`}
+              >
+                {r.category}
+              </div>
+            </div>
+          ))}
+        </div>
+
+      </div>
     </div>
   )
 }

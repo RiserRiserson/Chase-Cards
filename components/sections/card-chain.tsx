@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type TradeEventType = 'trade' | 'sale' | 'grading'
 
@@ -23,6 +23,8 @@ type TradeChain = {
   id: string
   root: CardNode
 }
+
+const STORAGE_KEY = 'card_chain_list'
 
 const MOCK_CHAINS: TradeChain[] = [
   {
@@ -69,7 +71,9 @@ function buildHistory(node: CardNode): CardNode[] {
 }
 
 export function CardChain() {
-  const [chains, setChains] = useState<TradeChain[]>(MOCK_CHAINS)
+  const [chains, setChains] = useState<TradeChain[]>([])
+  const [mounted, setMounted] = useState(false)
+
   const [historyOpen, setHistoryOpen] = useState<string | null>(null)
 
   const [showModal, setShowModal] = useState(false)
@@ -89,6 +93,35 @@ export function CardChain() {
 
   const [draggedId, setDraggedId] = useState<string | null>(null)
 
+  // ---------------- LOAD ----------------
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY)
+
+      if (saved) {
+        setChains(JSON.parse(saved))
+      } else {
+        setChains(MOCK_CHAINS)
+      }
+    } catch (e) {
+      console.error('Failed to load card chains:', e)
+      setChains(MOCK_CHAINS)
+    }
+
+    setMounted(true)
+  }, [])
+
+  // ---------------- SAVE ----------------
+  useEffect(() => {
+    if (!mounted) return
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(chains))
+    } catch (e) {
+      console.error('Failed to save card chains:', e)
+    }
+  }, [chains, mounted])
+
   const reset = () => {
     setName('')
     setNotes('')
@@ -99,11 +132,8 @@ export function CardChain() {
     setEditingChainId(null)
   }
 
-  const handleImageUpload = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-
     if (!file) return
 
     const reader = new FileReader()
@@ -133,7 +163,6 @@ export function CardChain() {
     }
 
     setChains(prev => [...prev, newChain])
-
     reset()
     setShowModal(false)
   }
@@ -156,11 +185,9 @@ export function CardChain() {
       const copy = structuredClone(prev)
 
       const chain = copy.find(c => c.id === activeChainId)
-
       if (!chain) return prev
 
       let cur = chain.root
-
       while (cur.next) {
         cur = cur.next
       }
@@ -181,12 +208,9 @@ export function CardChain() {
       const copy = structuredClone(prev)
 
       const chain = copy.find(c => c.id === editingChainId)
-
       if (!chain) return prev
 
-      const updateNode = (
-        node?: CardNode
-      ): CardNode | undefined => {
+      const updateNode = (node?: CardNode): CardNode | undefined => {
         if (!node) return undefined
 
         if (node.id === editingNodeId) {
@@ -203,7 +227,6 @@ export function CardChain() {
         }
 
         node.next = updateNode(node.next)
-
         return node
       }
 
@@ -220,29 +243,22 @@ export function CardChain() {
     const ok = window.confirm(
       'Delete this entire trade chain? This cannot be undone.'
     )
-
     if (!ok) return
 
     setChains(prev => prev.filter(c => c.id !== id))
   }
 
   const deleteNode = (chainId: string, nodeId: string) => {
-    const ok = window.confirm(
-      'Delete this card from the chain?'
-    )
-
+    const ok = window.confirm('Delete this card from the chain?')
     if (!ok) return
 
     setChains(prev => {
       const copy = structuredClone(prev)
 
       const chain = copy.find(c => c.id === chainId)
-
       if (!chain) return prev
 
-      const remove = (
-        node?: CardNode
-      ): CardNode | undefined => {
+      const remove = (node?: CardNode): CardNode | undefined => {
         if (!node) return undefined
 
         if (node.id === nodeId) {
@@ -250,7 +266,6 @@ export function CardChain() {
         }
 
         node.next = remove(node.next)
-
         return node
       }
 
@@ -272,7 +287,6 @@ export function CardChain() {
       if (from === -1 || to === -1) return prev
 
       const moved = arr.splice(from, 1)[0]
-
       arr.splice(to, 0, moved)
 
       return arr
@@ -281,14 +295,20 @@ export function CardChain() {
     setDraggedId(null)
   }
 
+  // ---------------- LOADING GUARD ----------------
+  if (!mounted) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground">
+        Loading...
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 space-y-6">
 
       <div>
-        <h2 className="text-2xl font-semibold">
-          Card Chain
-        </h2>
-
+        <h2 className="text-2xl font-semibold">Card Chain</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Multi-chain trade tracking system
         </p>
@@ -412,7 +432,6 @@ export function CardChain() {
                 )}
 
                 <div>
-
                   <div className="text-lg font-medium">
                     {latest.cardName}
                   </div>
@@ -420,7 +439,6 @@ export function CardChain() {
                   <div className="text-sm text-muted-foreground">
                     Acquired: {latest.acquiredDate}
                   </div>
-
                 </div>
 
               </div>
@@ -430,9 +448,7 @@ export function CardChain() {
                 <button
                   onClick={() =>
                     setHistoryOpen(
-                      historyOpen === chain.id
-                        ? null
-                        : chain.id
+                      historyOpen === chain.id ? null : chain.id
                     )
                   }
                   className="px-3 py-1 text-sm border rounded"
@@ -464,18 +480,13 @@ export function CardChain() {
                 <div className="border-l pl-4 space-y-6">
 
                   {history.map((node, index) => {
-                    const isLast =
-                      index === history.length - 1
+                    const isLast = index === history.length - 1
 
                     return (
-                      <div
-                        key={node.id}
-                        className="flex gap-3 items-start"
-                      >
+                      <div key={node.id} className="flex gap-3 items-start">
 
                         <div className="flex flex-col items-center pt-1 relative">
                           <div className="w-3 h-3 rounded-full bg-primary z-10" />
-
                           {!isLast && (
                             <div className="w-px flex-1 bg-border mt-1" />
                           )}
@@ -534,10 +545,7 @@ export function CardChain() {
 
                                 <button
                                   onClick={() =>
-                                    deleteNode(
-                                      chain.id,
-                                      node.id
-                                    )
+                                    deleteNode(chain.id, node.id)
                                   }
                                   className="text-xs text-red-500"
                                 >
