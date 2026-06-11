@@ -4,13 +4,49 @@ import { useState } from 'react'
 
 type CardItem = {
   id: string
+
+  // IDENTITY
   name: string
-  game: string
+  player?: string
+  year?: number
+  brand?: string
+  card_number?: string
   set_name?: string
   set?: string
+  subset_parallel?: string
+  sport?: string
+
+  // ATTRIBUTES
+  rookie?: boolean
+  autograph?: boolean
+  memorabilia?: boolean
+  game_used?: boolean
+  serial_numbered?: boolean
+  serial_number?: string
+
+  // CONDITION
+  condition_purchased?: string
+  current_condition?: string
+  grading_company?: string
+
+  // PURCHASE
+  purchase_date?: string
+  purchase_from?: string
+  purchase_price?: number
+
+  // VALUE & SALES
+  estimated_value_cad?: number
+  value_date?: string
+  card_sold?: boolean
+  sales_date?: string
+  sales_platform?: string
+  sales_amount?: number
+  fees?: number
+
+  // IMAGE / CORE
+  image_url?: string
   market_value: number
   quantity: number
-  image_url?: string
 }
 
 interface Props {
@@ -37,7 +73,7 @@ export function CollectionModal({
       onClick={onClose}
     >
       <div
-        className="bg-background w-full max-w-sm rounded-xl overflow-hidden shadow-2xl"
+        className="bg-background w-full max-w-md rounded-xl overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
 
@@ -46,7 +82,6 @@ export function CollectionModal({
           {selectedCard.image_url ? (
             <img
               src={selectedCard.image_url}
-              alt={selectedCard.name}
               className="w-full h-full object-cover"
             />
           ) : (
@@ -69,18 +104,73 @@ export function CollectionModal({
         </div>
 
         {/* CONTENT */}
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-4">
 
+          {/* HEADER */}
           <div>
-            <h3 className="text-lg font-semibold">{selectedCard.name}</h3>
+            <h3 className="text-lg font-semibold">
+              {selectedCard.player ?? selectedCard.name}
+            </h3>
             <p className="text-xs text-muted-foreground">
-              {selectedCard.game} • {selectedCard.set_name ?? selectedCard.set}
+              {selectedCard.year ?? '—'} • {selectedCard.brand ?? '—'} • {selectedCard.set_name ?? selectedCard.set ?? '—'}
             </p>
           </div>
 
-          {/* VALUE */}
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Value</span>
+          {/* ================= IDENTITY ================= */}
+          <div className="border rounded p-3 space-y-1 text-sm">
+            <div className="font-semibold text-xs uppercase text-muted-foreground">Identity</div>
+            <div>Year: {selectedCard.year ?? '—'}</div>
+            <div>Brand: {selectedCard.brand ?? '—'}</div>
+            <div>Player: {selectedCard.player ?? '—'}</div>
+            <div>Card #: {selectedCard.card_number ?? '—'}</div>
+            <div>Set: {selectedCard.set_name ?? selectedCard.set ?? '—'}</div>
+            <div>Parallel: {selectedCard.subset_parallel ?? '—'}</div>
+            <div>Sport: {selectedCard.sport ?? '—'}</div>
+          </div>
+
+          {/* ================= ATTRIBUTES ================= */}
+          <div className="border rounded p-3 space-y-1 text-sm">
+            <div className="font-semibold text-xs uppercase text-muted-foreground">Attributes</div>
+            <div>Rookie: {selectedCard.rookie ? 'Yes' : '—'}</div>
+            <div>Autograph: {selectedCard.autograph ? 'Yes' : '—'}</div>
+            <div>Memorabilia: {selectedCard.memorabilia ? 'Yes' : '—'}</div>
+            <div>Game Used: {selectedCard.game_used ? 'Yes' : '—'}</div>
+            <div>
+              Serial: {selectedCard.serial_numbered ? selectedCard.serial_number : '—'}
+            </div>
+          </div>
+
+          {/* ================= CONDITION ================= */}
+          <div className="border rounded p-3 space-y-1 text-sm">
+            <div className="font-semibold text-xs uppercase text-muted-foreground">Condition</div>
+            <div>Purchased: {selectedCard.condition_purchased ?? '—'}</div>
+            <div>Current: {selectedCard.current_condition ?? '—'}</div>
+            <div>Grading: {selectedCard.grading_company ?? '—'}</div>
+          </div>
+
+          {/* ================= PURCHASE ================= */}
+          <div className="border rounded p-3 space-y-1 text-sm">
+            <div className="font-semibold text-xs uppercase text-muted-foreground">Purchase</div>
+            <div>Date: {selectedCard.purchase_date ?? '—'}</div>
+            <div>From: {selectedCard.purchase_from ?? '—'}</div>
+            <div>Price: ${selectedCard.purchase_price ?? 0}</div>
+          </div>
+
+          {/* ================= VALUE & SALES ================= */}
+          <div className="border rounded p-3 space-y-1 text-sm">
+            <div className="font-semibold text-xs uppercase text-muted-foreground">Value & Sales</div>
+            <div>Estimated Value: ${selectedCard.estimated_value_cad ?? 0}</div>
+            <div>Value Date: {selectedCard.value_date ?? '—'}</div>
+            <div>Sold: {selectedCard.card_sold ? 'Yes' : 'No'}</div>
+            <div>Sale Date: {selectedCard.sales_date ?? '—'}</div>
+            <div>Platform: {selectedCard.sales_platform ?? '—'}</div>
+            <div>Sale Price: ${selectedCard.sales_amount ?? 0}</div>
+            <div>Fees: ${selectedCard.fees ?? 0}</div>
+          </div>
+
+          {/* VALUE EDIT */}
+          <div className="flex justify-between text-sm border-t pt-3">
+            <span className="text-muted-foreground">Quick Value Edit</span>
 
             {editMode ? (
               <input
@@ -92,12 +182,6 @@ export function CollectionModal({
             ) : (
               <span>${selectedCard.market_value ?? 0}</span>
             )}
-          </div>
-
-          {/* QTY */}
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Quantity</span>
-            <span>{selectedCard.quantity ?? 0}</span>
           </div>
 
           {/* ACTIONS */}

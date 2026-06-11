@@ -16,14 +16,16 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
     game: '',
     set: '',
     year: '',
-    condition: 'mint',
+    brand: '',
+    player: '',
     marketValue: '',
     purchasePrice: '',
     quantity: '1',
+    condition: 'mint',
+    serial_number: '',
     rarity: ''
   })
 
-  // ✅ NEW: image state
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
@@ -31,15 +33,14 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
-  // ✅ upload helper
   const uploadImage = async (file: File) => {
     const filePath = `${userId}/${Date.now()}-${file.name}`
 
-    const { error: uploadError } = await supabase.storage
+    const { error } = await supabase.storage
       .from('card-images')
       .upload(filePath, file)
 
-    if (uploadError) throw uploadError
+    if (error) throw error
 
     const { data } = supabase.storage
       .from('card-images')
@@ -56,24 +57,57 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
     try {
       let imageUrl = ''
 
-      // ✅ upload image first if exists
       if (imageFile) {
         imageUrl = await uploadImage(imageFile)
       }
 
       const { error } = await supabase.from('cards').insert([
         {
+          user_id: userId,
+
+          // CORE IDENTITY
           name: form.name,
           game: form.game,
           set: form.set,
+          set_name: form.set,
           year: form.year ? Number(form.year) : null,
-          condition: form.condition,
-          market_value: form.marketValue ? Number(form.marketValue) : 0,
+          brand: form.brand || null,
+          player: form.player || form.name,
+
+          // ATTRIBUTES (defaults safe for UI)
+          rookie: false,
+          autograph: false,
+          memorabilia: false,
+          game_used: false,
+          serial_numbered: !!form.serial_number,
+          serial_number: form.serial_number || null,
+
+          // CONDITION
+          condition_purchased: form.condition,
+          current_condition: form.condition,
+          grading_company: null,
+
+          // PURCHASE
+          purchase_date: null,
+          purchase_from: null,
           purchase_price: form.purchasePrice ? Number(form.purchasePrice) : 0,
+
+          // VALUE / SALES
+          estimated_value_cad: form.marketValue ? Number(form.marketValue) : 0,
+          value_date: null,
+          card_sold: false,
+          sales_date: null,
+          sales_platform: null,
+          sales_amount: null,
+          fees: null,
+
+          // OTHER
+          market_value: form.marketValue ? Number(form.marketValue) : 0,
           quantity: form.quantity ? Number(form.quantity) : 1,
-          rarity: form.rarity,
-          image_url: imageUrl,
-          user_id: userId
+          rarity: form.rarity || null,
+
+          // IMAGE
+          image_url: imageUrl
         }
       ])
 
@@ -85,20 +119,22 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
       onSuccess()
       onClose()
 
-      // reset
       setForm({
         name: '',
         game: '',
         set: '',
         year: '',
-        condition: 'mint',
+        brand: '',
+        player: '',
         marketValue: '',
         purchasePrice: '',
         quantity: '1',
+        condition: 'mint',
+        serial_number: '',
         rarity: ''
       })
-      setImageFile(null)
 
+      setImageFile(null)
     } catch (err) {
       console.error('Upload error:', err)
     } finally {
@@ -115,21 +151,24 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
         <h2 className="text-lg font-semibold">Add Card</h2>
 
         <input name="name" placeholder="Name" onChange={handleChange} className="w-full border p-2" />
+        <input name="player" placeholder="Player" onChange={handleChange} className="w-full border p-2" />
+        <input name="brand" placeholder="Brand" onChange={handleChange} className="w-full border p-2" />
         <input name="game" placeholder="Game" onChange={handleChange} className="w-full border p-2" />
         <input name="set" placeholder="Set" onChange={handleChange} className="w-full border p-2" />
         <input name="year" placeholder="Year" onChange={handleChange} className="w-full border p-2" />
+
         <input name="marketValue" placeholder="Market Value" onChange={handleChange} className="w-full border p-2" />
         <input name="purchasePrice" placeholder="Purchase Price" onChange={handleChange} className="w-full border p-2" />
+
+        <input name="serial_number" placeholder="Serial Number" onChange={handleChange} className="w-full border p-2" />
+
         <input name="rarity" placeholder="Rarity" onChange={handleChange} className="w-full border p-2" />
 
-        {/* ✅ NEW IMAGE INPUT */}
         <input
           type="file"
           accept="image/*"
           onChange={(e) => {
-            if (e.target.files?.[0]) {
-              setImageFile(e.target.files[0])
-            }
+            if (e.target.files?.[0]) setImageFile(e.target.files[0])
           }}
           className="w-full border p-2"
         />
