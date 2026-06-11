@@ -1,53 +1,7 @@
 'use client'
 
+import type { CardItem } from './card'
 import { useState } from 'react'
-
-type CardItem = {
-  id: string
-
-  // IDENTITY
-  name: string
-  player?: string
-  year?: number
-  brand?: string
-  card_number?: string
-  set_name?: string
-  set?: string
-  subset_parallel?: string
-  sport?: string
-
-  // ATTRIBUTES
-  rookie?: boolean
-  autograph?: boolean
-  memorabilia?: boolean
-  game_used?: boolean
-  serial_numbered?: boolean
-  serial_number?: string
-
-  // CONDITION
-  condition_purchased?: string
-  current_condition?: string
-  grading_company?: string
-
-  // PURCHASE
-  purchase_date?: string
-  purchase_from?: string
-  purchase_price?: number
-
-  // VALUE & SALES
-  estimated_value_cad?: number
-  value_date?: string
-  card_sold?: boolean
-  sales_date?: string
-  sales_platform?: string
-  sales_amount?: number
-  fees?: number
-
-  // IMAGE / CORE
-  image_url?: string
-  market_value: number
-  quantity: number
-}
 
 interface Props {
   selectedCard: CardItem
@@ -65,7 +19,10 @@ export function CollectionModal({
   onUploadImage
 }: Props) {
   const [editMode, setEditMode] = useState(false)
-  const [editValue, setEditValue] = useState(selectedCard.market_value ?? 0)
+
+  const [editValue, setEditValue] = useState(
+    selectedCard.estimated_value_cad ?? 0
+  )
 
   return (
     <div
@@ -109,28 +66,33 @@ export function CollectionModal({
           {/* HEADER */}
           <div>
             <h3 className="text-lg font-semibold">
-              {selectedCard.player ?? selectedCard.name}
+              {selectedCard.player ?? selectedCard.full_card_name}
             </h3>
+
             <p className="text-xs text-muted-foreground">
-              {selectedCard.year ?? '—'} • {selectedCard.brand ?? '—'} • {selectedCard.set_name ?? selectedCard.set ?? '—'}
+              {selectedCard.year ?? '—'} • {selectedCard.brand ?? '—'} • {selectedCard.set ?? '—'}
             </p>
           </div>
 
           {/* ================= IDENTITY ================= */}
           <div className="border rounded p-3 space-y-1 text-sm">
-            <div className="font-semibold text-xs uppercase text-muted-foreground">Identity</div>
+            <div className="font-semibold text-xs uppercase text-muted-foreground">
+              Identity
+            </div>
             <div>Year: {selectedCard.year ?? '—'}</div>
             <div>Brand: {selectedCard.brand ?? '—'}</div>
             <div>Player: {selectedCard.player ?? '—'}</div>
             <div>Card #: {selectedCard.card_number ?? '—'}</div>
-            <div>Set: {selectedCard.set_name ?? selectedCard.set ?? '—'}</div>
+            <div>Set: {selectedCard.set ?? '—'}</div>
             <div>Parallel: {selectedCard.subset_parallel ?? '—'}</div>
             <div>Sport: {selectedCard.sport ?? '—'}</div>
           </div>
 
           {/* ================= ATTRIBUTES ================= */}
           <div className="border rounded p-3 space-y-1 text-sm">
-            <div className="font-semibold text-xs uppercase text-muted-foreground">Attributes</div>
+            <div className="font-semibold text-xs uppercase text-muted-foreground">
+              Attributes
+            </div>
             <div>Rookie: {selectedCard.rookie ? 'Yes' : '—'}</div>
             <div>Autograph: {selectedCard.autograph ? 'Yes' : '—'}</div>
             <div>Memorabilia: {selectedCard.memorabilia ? 'Yes' : '—'}</div>
@@ -142,7 +104,9 @@ export function CollectionModal({
 
           {/* ================= CONDITION ================= */}
           <div className="border rounded p-3 space-y-1 text-sm">
-            <div className="font-semibold text-xs uppercase text-muted-foreground">Condition</div>
+            <div className="font-semibold text-xs uppercase text-muted-foreground">
+              Condition
+            </div>
             <div>Purchased: {selectedCard.condition_purchased ?? '—'}</div>
             <div>Current: {selectedCard.current_condition ?? '—'}</div>
             <div>Grading: {selectedCard.grading_company ?? '—'}</div>
@@ -150,7 +114,9 @@ export function CollectionModal({
 
           {/* ================= PURCHASE ================= */}
           <div className="border rounded p-3 space-y-1 text-sm">
-            <div className="font-semibold text-xs uppercase text-muted-foreground">Purchase</div>
+            <div className="font-semibold text-xs uppercase text-muted-foreground">
+              Purchase
+            </div>
             <div>Date: {selectedCard.purchase_date ?? '—'}</div>
             <div>From: {selectedCard.purchase_from ?? '—'}</div>
             <div>Price: ${selectedCard.purchase_price ?? 0}</div>
@@ -158,7 +124,9 @@ export function CollectionModal({
 
           {/* ================= VALUE & SALES ================= */}
           <div className="border rounded p-3 space-y-1 text-sm">
-            <div className="font-semibold text-xs uppercase text-muted-foreground">Value & Sales</div>
+            <div className="font-semibold text-xs uppercase text-muted-foreground">
+              Value & Sales
+            </div>
             <div>Estimated Value: ${selectedCard.estimated_value_cad ?? 0}</div>
             <div>Value Date: {selectedCard.value_date ?? '—'}</div>
             <div>Sold: {selectedCard.card_sold ? 'Yes' : 'No'}</div>
@@ -180,7 +148,7 @@ export function CollectionModal({
                 onChange={(e) => setEditValue(Number(e.target.value))}
               />
             ) : (
-              <span>${selectedCard.market_value ?? 0}</span>
+              <span>${selectedCard.estimated_value_cad ?? 0}</span>
             )}
           </div>
 

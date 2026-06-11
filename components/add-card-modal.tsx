@@ -90,13 +90,18 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
   }
 
   const uploadImage = async (file: File) => {
+    if (!userId) return ''
+
     const filePath = `${userId}/${Date.now()}-${file.name}`
 
     const { error } = await supabase.storage
       .from('card-images')
       .upload(filePath, file)
 
-    if (error) throw error
+    if (error) {
+      console.error(error)
+      return ''
+    }
 
     const { data } = supabase.storage
       .from('card-images')
@@ -150,6 +155,7 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
           estimated_value_cad: form.estimated_value_cad
             ? Number(form.estimated_value_cad)
             : null,
+
           value_date: form.value_date || null,
 
           card_sold: false,
@@ -158,7 +164,7 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
           sales_amount: null,
           fees: null,
 
-          image_url: imageFile ? await uploadImage(imageFile) : ''
+          image_url: imageUrl || ''
         }
       ])
 
@@ -224,12 +230,12 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
         type="button"
         onClick={() => toggleAttr(key)}
         className={`flex items-center gap-1 border px-2 py-1 text-sm rounded transition hover:opacity-90 active:scale-[0.98]
-  ${
-    active
-      ? 'bg-primary text-black border-primary'
-      : 'bg-muted text-muted-foreground border'
-  }
-`}
+          ${
+            active
+              ? 'bg-primary text-black border-primary'
+              : 'bg-muted text-muted-foreground border'
+          }
+        `}
       >
         <span className="text-xs leading-none">{icon}</span>
         <span>{label}</span>
@@ -257,7 +263,7 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
           <input name="subset_parallel" placeholder="Subset / Parallel" onChange={handleChange} className="w-full border p-2" />
           <input name="sport" placeholder="Sport" onChange={handleChange} className="w-full border p-2" />
 
-          {/* ATTRIBUTES WITH ICONS */}
+          {/* ATTRIBUTES */}
           <div className="flex flex-wrap gap-2 text-sm">
             {attrButton('rookie', 'Rookie', '🆕')}
             {attrButton('autograph', 'Auto', '✍️')}
@@ -266,12 +272,7 @@ export function AddCardModal({ userId, open, onClose, onSuccess }: Props) {
             {attrButton('serial_numbered', 'Serial', '#️⃣')}
           </div>
 
-          <input
-            name="serial_number"
-            placeholder="Serial Number"
-            onChange={handleChange}
-            className="w-full border p-2"
-          />
+          <input name="serial_number" placeholder="Serial Number" onChange={handleChange} className="w-full border p-2" />
 
           {/* CONDITION */}
           <input name="condition_purchased" placeholder="Condition Purchased" onChange={handleChange} className="w-full border p-2" />
