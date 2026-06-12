@@ -1,96 +1,111 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { sampleCards, gameLabels, type CardGame } from '@/lib/card-data'
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Legend,
-  Tooltip,
-} from 'recharts'
 
-export function DistributionChart() {
-  // Group cards by game type
-  const gameDistribution = sampleCards.reduce(
-    (acc, card) => {
-      const value = card.marketValue * card.quantity
-      acc[card.game] = (acc[card.game] || 0) + value
-      return acc
-    },
-    {} as Record<CardGame, number>
-  )
+import { supabase } from '@/lib/supabaseClient'
+import type { CardItem } from '@/components/sections/collection/card'
 
-  const chartData = Object.entries(gameDistribution).map(([game, value]) => ({
-    name: gameLabels[game as CardGame],
-    value,
-  }))
+type Props = {
+  userId?: string
+}
 
-  // These colors are fine (data colors, not text/UI colors)
-  const COLORS = [
-    'oklch(0.88 0.18 95)',
-    'oklch(0.7 0.15 160)',
-    'oklch(0.6 0.15 260)',
-  ]
+export function DistributionChart({ userId }: Props) {
+  const [cards, setCards] = useState<CardItem[]>([])
+
+  useEffect(() => {
+    const fetchCards = async () => {
+      if (!userId) return
+
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*')
+        .eq('user_id', userId)
+
+      if (error) {
+        console.error(error)
+        return
+      }
+
+      setCards((data as CardItem[]) || [])
+    }
+
+    fetchCards()
+  }, [userId])
+
+  const chartData = useMemo(() => {
+    if (!cards.length) return []
+
+    const total = cards.length
+
+    const rookieCount = cards.filter(c => c.rookie).length
+    const autographCount = cards.filter(c => c.autograph).length
+    const memorabiliaCount = cards.filter(c => c.memorabilia).length
+    const gameUsedCount = cards.filter(c => c.game_used).length
+    const serialCount = cards.filter(c => c.serial_numbered).length
+
+    return [
+      {
+        name: 'Rookie',
+        value: Math.round((rookieCount / total) * 100)
+      },
+      {
+        name: 'Autograph',
+        value: Math.round((autographCount / total) * 100)
+      },
+      {
+        name: 'Memorabilia',
+        value: Math.round((memorabiliaCount / total) * 100)
+      },
+      {
+        name: 'Game Used',
+        value: Math.round((gameUsedCount / total) * 100)
+      },
+      {
+        name: 'Serial Numbered',
+        value: Math.round((serialCount / total) * 100)
+      }
+    ]
+  }, [cards])
 
   return (
     <Card className="border-border">
       <CardHeader>
-        <CardTitle className="text-lg">Collection by Type</CardTitle>
+        <CardTitle className="text-lg">
+          Attribute Distribution (% of Collection)
+        </CardTitle>
       </CardHeader>
 
       <CardContent>
-        <div className="h-65">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={90}
-                paddingAngle={4}
-                dataKey="value"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
-                  />
-                ))}
-              </Pie>
+        <div className="space-y-3 text-sm">
 
-              {/* ✅ THEME-AWARE TOOLTIP */}
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'var(--card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  color: 'var(--card-foreground)',
-                }}
-                itemStyle={{
-                  color: 'var(--card-foreground)',
-                }}
-                labelStyle={{
-                  color: 'var(--foreground)',
-                }}
-                formatter={(value: number) => [
-                  `$${value.toLocaleString()}`,
-                  'Value',
-                ]}
-              />
+          {/* HEADER */}
+          <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
+            <div>Attribute</div>
+            <div className="text-right">% of Collection</div>
+          </div>
 
-              {/* ✅ THEME-AWARE LEGEND */}
-              <Legend
-                formatter={(value) => (
-                  <span style={{ color: 'var(--foreground)' }}>
-                    {value}
-                  </span>
-                )}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          {/* ROWS */}
+          {chartData.map(row => (
+            <div key={row.name} className="grid grid-cols-2 gap-4 items-center">
+
+              <div className="font-medium text-sm">
+                {row.name}
+              </div>
+
+              <div className="relative h-6 bg-muted rounded overflow-hidden">
+                <div
+                  className="h-full bg-primary"
+                  style={{ width: `${row.value}%` }}
+                />
+                <div className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-medium">
+                  {row.value}%
+                </div>
+              </div>
+
+            </div>
+          ))}
+
         </div>
       </CardContent>
     </Card>

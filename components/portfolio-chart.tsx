@@ -1,7 +1,7 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { sampleCards } from '@/lib/card-data'
 import {
   Area,
   AreaChart,
@@ -9,28 +9,72 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  CartesianGrid,
+  CartesianGrid
 } from 'recharts'
 
-export function PortfolioChart() {
-  // Aggregate price history across all cards
-  const months = ['2024-01', '2024-02', '2024-03', '2024-04', '2024-05']
-  const chartData = months.map((month, index) => {
-    const totalValue = sampleCards.reduce((acc, card) => {
-      const historyEntry = card.priceHistory[index]
-      return acc + (historyEntry ? historyEntry.price * card.quantity : 0)
-    }, 0)
-    return {
-      month: month.split('-')[1] + '/' + month.split('-')[0].slice(2),
-      value: totalValue,
+import { supabase } from '@/lib/supabaseClient'
+import type { CardItem } from '@/components/sections/collection/card'
+
+type Props = {
+  userId?: string
+}
+
+export function PortfolioChart({ userId }: Props) {
+  const [cards, setCards] = useState<CardItem[]>([])
+
+  useEffect(() => {
+    const fetchCards = async () => {
+      if (!userId) return
+
+      const { data, error } = await supabase
+        .from('cards')
+        .select('*')
+        .eq('user_id', userId)
+
+      if (error) {
+        console.error(error)
+        return
+      }
+
+      setCards((data as CardItem[]) || [])
     }
-  })
+
+    fetchCards()
+  }, [userId])
+
+  const chartData = useMemo(() => {
+    if (!cards.length) return []
+
+    const grouped: Record<string, number> = {}
+
+    cards.forEach(card => {
+      const date = card.purchase_date
+      const value = card.estimated_value_cad ?? 0
+
+      if (!date) return
+
+      const monthKey = date.slice(0, 7) // YYYY-MM
+
+      if (!grouped[monthKey]) grouped[monthKey] = 0
+      grouped[monthKey] += value
+    })
+
+    return Object.entries(grouped)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, value]) => ({
+        month: `${month.split('-')[1]}/${month.split('-')[0].slice(2)}`,
+        value
+      }))
+  }, [cards])
 
   return (
     <Card className="border-border">
       <CardHeader>
-        <CardTitle className="text-lg">Portfolio Value Over Time</CardTitle>
+        <CardTitle className="text-lg">
+          Portfolio Value Over Time
+        </CardTitle>
       </CardHeader>
+
       <CardContent>
         <div className="h-75">
           <ResponsiveContainer width="100%" height="100%">
@@ -41,7 +85,9 @@ export function PortfolioChart() {
                   <stop offset="95%" stopColor="oklch(0.88 0.18 95)" stopOpacity={0} />
                 </linearGradient>
               </defs>
+
               <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.28 0.01 250)" />
+
               <XAxis
                 dataKey="month"
                 stroke="oklch(0.65 0 0)"
@@ -49,6 +95,7 @@ export function PortfolioChart() {
                 tickLine={false}
                 axisLine={false}
               />
+
               <YAxis
                 stroke="oklch(0.65 0 0)"
                 fontSize={12}
@@ -56,16 +103,20 @@ export function PortfolioChart() {
                 axisLine={false}
                 tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
               />
+
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'oklch(0.18 0.01 250)',
                   border: '1px solid oklch(0.28 0.01 250)',
                   borderRadius: '8px',
-                  color: 'oklch(0.98 0 0)',
+                  color: 'oklch(0.98 0 0)'
                 }}
-                formatter={(value: number) => [`$${value.toLocaleString()}`, 'Value']}
-                labelStyle={{ color: 'oklch(0.65 0 0)' }}
+                formatter={(value: number) => [
+                  `$${value.toLocaleString()}`,
+                  'Value'
+                ]}
               />
+
               <Area
                 type="monotone"
                 dataKey="value"
