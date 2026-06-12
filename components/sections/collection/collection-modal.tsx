@@ -1,7 +1,7 @@
 'use client'
 
 import type { CardItem } from './card'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface Props {
   selectedCard: CardItem
@@ -19,10 +19,15 @@ export function CollectionModal({
   onUploadImage
 }: Props) {
   const [editMode, setEditMode] = useState(false)
-
-  const [editValue, setEditValue] = useState(
+  const [editValue, setEditValue] = useState<number>(
     selectedCard.estimated_value_cad ?? 0
   )
+
+  // IMPORTANT: sync value when switching cards
+  useEffect(() => {
+    setEditValue(selectedCard.estimated_value_cad ?? 0)
+    setEditMode(false)
+  }, [selectedCard.id])
 
   return (
     <div
@@ -74,7 +79,7 @@ export function CollectionModal({
             </p>
           </div>
 
-          {/* ================= IDENTITY ================= */}
+          {/* IDENTITY */}
           <div className="border rounded p-3 space-y-1 text-sm">
             <div className="font-semibold text-xs uppercase text-muted-foreground">
               Identity
@@ -88,7 +93,7 @@ export function CollectionModal({
             <div>Sport: {selectedCard.sport ?? '—'}</div>
           </div>
 
-          {/* ================= ATTRIBUTES ================= */}
+          {/* ATTRIBUTES */}
           <div className="border rounded p-3 space-y-1 text-sm">
             <div className="font-semibold text-xs uppercase text-muted-foreground">
               Attributes
@@ -102,7 +107,7 @@ export function CollectionModal({
             </div>
           </div>
 
-          {/* ================= CONDITION ================= */}
+          {/* CONDITION */}
           <div className="border rounded p-3 space-y-1 text-sm">
             <div className="font-semibold text-xs uppercase text-muted-foreground">
               Condition
@@ -112,7 +117,7 @@ export function CollectionModal({
             <div>Grading: {selectedCard.grading_company ?? '—'}</div>
           </div>
 
-          {/* ================= PURCHASE ================= */}
+          {/* PURCHASE */}
           <div className="border rounded p-3 space-y-1 text-sm">
             <div className="font-semibold text-xs uppercase text-muted-foreground">
               Purchase
@@ -122,7 +127,7 @@ export function CollectionModal({
             <div>Price: ${selectedCard.purchase_price ?? 0}</div>
           </div>
 
-          {/* ================= VALUE & SALES ================= */}
+          {/* VALUE & SALES */}
           <div className="border rounded p-3 space-y-1 text-sm">
             <div className="font-semibold text-xs uppercase text-muted-foreground">
               Value & Sales
@@ -160,6 +165,7 @@ export function CollectionModal({
               onClick={() => {
                 if (editMode) {
                   onSave(editValue)
+                  setEditMode(false)
                 } else {
                   setEditMode(true)
                 }

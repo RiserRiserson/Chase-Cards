@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card'
 
 import { supabase } from '@/lib/supabaseClient'
-import type { CardItem } from '@/types/card'
+import type { CardItem } from '@/components/sections/collection/card'
 
 export function CardList({ userId }: { userId?: string }) {
   const [cards, setCards] = useState<CardItem[]>([])
@@ -73,11 +73,19 @@ export function CardList({ userId }: { userId?: string }) {
         {cards.length === 0 ? (
           <p className="text-sm text-muted-foreground">No cards yet</p>
         ) : (
-          cards.map((card) => (
-            <div key={card.id} className="p-3 border-b">
-              {card.name} — ${card.market_value}
-            </div>
-          ))
+          cards
+            .slice()
+            .sort(
+              (a, b) =>
+                (b.estimated_value_cad ?? 0) -
+                (a.estimated_value_cad ?? 0)
+            )
+            .map((card) => (
+              <div key={card.id} className="p-3 border-b">
+                {card.full_card_name ?? 'Unnamed Card'} — $
+                {card.estimated_value_cad ?? 0}
+              </div>
+            ))
         )}
       </CardContent>
     </CardContainer>
