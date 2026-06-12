@@ -1,42 +1,158 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import {
+  DndContext,
+  closestCenter,
+  DragEndEvent
+} from '@dnd-kit/core'
+
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable'
+
+import { CSS } from '@dnd-kit/utilities'
+
 import { StatsCards } from '@/components/stats-cards'
 import { PortfolioChart } from '@/components/portfolio-chart'
-import { AttributeHeatmap } from '@/components/AttributeHeatmap'
 import { CardList } from '@/components/card-list'
 import { DistributionChart } from '@/components/distribution-chart'
 import { MarketMovers } from '@/components/market-movers'
+import { AttributeHeatmap } from '@/components/AttributeHeatmap'
+
+type WidgetKey =
+  | 'stats'
+  | 'portfolio'
+  | 'distribution'
+  | 'heatmap'
+  | 'cards'
+  | 'market'
+
+const defaultLayout: WidgetKey[] = [
+  'portfolio',
+  'distribution',
+  'heatmap',
+  'cards',
+  'market'
+]
 
 export function DashboardSection({ userId }: { userId?: string }) {
+  const [layout, setLayout] = useState<WidgetKey[]>(defaultLayout)
+
+  /* LOAD */
+  useEffect(() => {
+    const saved = localStorage.getItem('dashboard_layout')
+    if (saved) {
+      try {
+        setLayout(JSON.parse(saved))
+      } catch {
+        setLayout(defaultLayout)
+      }
+    }
+  }, [])
+
+  /* SAVE */
+  useEffect(() => {
+    localStorage.setItem('dashboard_layout', JSON.stringify(layout))
+  }, [layout])
+
+  /* DRAG */
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const oldIndex = layout.indexOf(active.id as WidgetKey)
+    const newIndex = layout.indexOf(over.id as WidgetKey)
+
+    setLayout(arrayMove(layout, oldIndex, newIndex))
+  }
+
+  const renderWidget = (key: WidgetKey) => {
+    switch (key) {
+      case 'portfolio':
+        return <PortfolioChart userId={userId} />
+      case 'distribution':
+        return <DistributionChart userId={userId} />
+      case 'heatmap':
+        return <AttributeHeatmap userId={userId} />
+      case 'cards':
+        return <CardList userId={userId} />
+      case 'market':
+        return <MarketMovers userId={userId} />
+    }
+  }
+
   return (
     <div className="space-y-6">
 
-      {/* TOP STATS */}
-      <StatsCards userId={userId} />
-
-      {/* VALUE + COMPOSITION */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <PortfolioChart userId={userId} />
-        </div>
-
-        <div className="space-y-6">
-          <DistributionChart userId={userId} />
-          <AttributeHeatmap userId={userId} />
-        </div>
+      {/* ================= TOP ROW (FULL WIDTH) ================= */}
+      <div>
+        <StatsCards userId={userId} />
       </div>
 
-      {/* COLLECTION + MARKET */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <CardList userId={userId} />
-        </div>
+      {/* ================= DRAGGABLE GRID ================= */}
+      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={layout} strategy={verticalListSortingStrategy}>
 
-        <div>
-          <MarketMovers userId={userId} />
-        </div>
+          {/* 2-column layout */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {layout.map((key) => (
+              <SortableItem key={key} id={key}>
+                {renderWidget(key)}
+              </SortableItem>
+            ))}
+
+          </div>
+
+        </SortableContext>
+      </DndContext>
+
+    </div>
+  )
+}
+
+/* ---------------- SORTABLE ITEM ---------------- */
+
+function SortableItem({
+  id,
+  children
+}: {
+  id: string
+  children: React.ReactNode
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id })
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition
+      }}
+      className={`
+        relative
+        col-span-1
+        ${isDragging ? 'opacity-60' : 'opacity-100'}
+      `}
+      {...attributes}
+      {...listeners}
+    >
+      <div className="absolute top-2 right-2 text-xs text-muted-foreground cursor-grab select-none">
+        ⋮⋮
       </div>
 
+      {children}
     </div>
   )
 }
