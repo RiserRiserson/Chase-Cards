@@ -2,19 +2,16 @@
 
 import { useRef, useState } from 'react'
 import { UploadPanel, UploadPanelHandle } from './UploadPanel'
-import { analyzeCardImage } from './utils/gradinghelpers'
+import { analyzeCardImage } from './utils/grading'
 import { ImageViewer } from './ImageViewer'
 import { CenteringOverlayWeb } from './CenteringOverlayWeb'
 
-type AnalysisMode = {
-  grid: boolean
-  heatmap: boolean
-  centering: boolean
-  sharpness: boolean
-  surface: boolean
-}
-
-type CenteringMode = 'vertical' | 'horizontal'
+type AnalysisModule =
+  | 'none'
+  | 'centering'
+  | 'surface'
+  | 'edges'
+  | 'corners'
 
 type GuideState = {
   v1: number
@@ -25,40 +22,23 @@ type GuideState = {
   h2: number
   h3: number
   h4: number
-  mode: CenteringMode
-}
-
-type CenteringScore = {
-  width: {
-    left: number
-    right: number
-  }
-  height: {
-    top: number
-    bottom: number
-  }
+  mode: 'vertical' | 'horizontal'
 }
 
 export function CardAnalysisLayout() {
   const uploadRef = useRef<UploadPanelHandle | null>(null)
 
   const [image, setImage] = useState<string | null>(null)
-  const [heatmap, setHeatmap] = useState<string | null>(null)
 
-  const [centerScore, setCenterScore] = useState<CenteringScore | null>(null)
-  const [sharpnessScore, setSharpnessScore] = useState<number | null>(null)
+  // PIPELINE RESULTS
   const [surfaceScore, setSurfaceScore] = useState<number | null>(null)
+  const [centerScore, setCenterScore] = useState<number | null>(null)
+  const [edgesScore, setEdgesScore] = useState<number | null>(null)
+  const [cornersScore, setCornersScore] = useState<number | null>(null)
   const [finalGrade, setFinalGrade] = useState<number | null>(null)
 
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>({
-    grid: false,
-    heatmap: false,
-    centering: false,
-    sharpness: false,
-    surface: false
-  })
+  const [activeModule, setActiveModule] = useState<AnalysisModule>('none')
 
-  // ---------------- CENTERING GUIDES ----------------
   const [guides, setGuides] = useState<GuideState>({
     v1: 20,
     v2: 30,
@@ -71,6 +51,8 @@ export function CardAnalysisLayout() {
     mode: 'vertical'
   })
 
+  const [zoom, setZoom] = useState(1)
+
   // ---------------- IMAGE UPLOAD ----------------
   const handleImageUpload = (file: File, url: string) => {
     const img = new Image()
@@ -82,76 +64,17 @@ export function CardAnalysisLayout() {
       const result = analyzeCardImage(img)
       if (!result) return
 
-      setSharpnessScore(result.sharpness)
-      setSurfaceScore(result.surface)
+      setSurfaceScore(result.surface.score)
+      setCenterScore(result.centering.score)
+      setEdgesScore(result.edges.score)
+      setCornersScore(result.corners.score)
       setFinalGrade(result.finalGrade)
-      setHeatmap(result.heatmap)
     }
   }
 
-  const getLetterGrade = (score: number) => {
-    if (score >= 9) return 'A+'
-    if (score >= 8) return 'A'
-    if (score >= 7) return 'B'
-    if (score >= 6) return 'C'
-    if (score >= 5) return 'D'
-    return 'F'
-  }
-
-  const toggleMode = (key: keyof AnalysisMode) => {
-    setAnalysisMode(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }))
-  }
-
-  // ---------------- CENTERING CALCULATION ----------------
-  const calculateCenterScore = (g: GuideState): CenteringScore => {
-    const vOuterMin = Math.min(g.v1, g.v4)
-    const vOuterMax = Math.max(g.v1, g.v4)
-
-    const vLeft = g.v2 - vOuterMin
-    const vRight = vOuterMax - g.v3
-
-    const vTotal = vLeft + vRight
-
-    const leftPct = vTotal > 0 ? Math.round((vLeft / vTotal) * 100) : 50
-    const rightPct = 100 - leftPct
-
-    const hOuterMin = Math.min(g.h1, g.h4)
-    const hOuterMax = Math.max(g.h1, g.h4)
-
-    const hTop = g.h2 - hOuterMin
-    const hBottom = hOuterMax - g.h3
-
-    const hTotal = hTop + hBottom
-
-    const topPct = hTotal > 0 ? Math.round((hTop / hTotal) * 100) : 50
-    const bottomPct = 100 - topPct
-
-    return {
-      width: {
-        left: leftPct,
-        right: rightPct
-      },
-      height: {
-        top: topPct,
-        bottom: bottomPct
-      }
-    }
-  }
-
-  // ---------------- GUIDE UPDATE WRAPPER ----------------
-  const updateGuides = (value: React.SetStateAction<GuideState>) => {
-    setGuides(prev => {
-      const next =
-        typeof value === 'function'
-          ? (value as (p: GuideState) => GuideState)(prev)
-          : value
-
-      setCenterScore(calculateCenterScore(next))
-      return next
-    })
+  // ---------------- MODULE TOGGLE ----------------
+  const setModule = (module: AnalysisModule) => {
+    setActiveModule(prev => (prev === module ? 'none' : module))
   }
 
   // ---------------- EMPTY STATE ----------------
@@ -166,7 +89,6 @@ export function CardAnalysisLayout() {
         </div>
 
         <div className="border rounded-xl p-6 bg-card space-y-4">
-
           <UploadPanel
             ref={uploadRef}
             onImageUpload={handleImageUpload}
@@ -174,14 +96,10 @@ export function CardAnalysisLayout() {
 
           <button
             onClick={() => uploadRef.current?.triggerFileSelect()}
-            className="px-4 py-2 rounded bg-yellow-400 text-black font-medium hover:bg-yellow-300 transition"
+            className="px-4 py-2 rounded bg-yellow-400 text-black font-medium hover:bg-yellow-300"
           >
             Choose Card
           </button>
-
-          <p className="text-sm text-muted-foreground">
-            No card selected
-          </p>
         </div>
       </div>
     )
@@ -194,64 +112,94 @@ export function CardAnalysisLayout() {
       <div>
         <h2 className="text-2xl font-semibold">Card Analysis</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Toggle grading layers and visual analysis tools
+          Toggle grading modules
         </p>
       </div>
 
+      {/* MODULE TOGGLES */}
       <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-card">
 
-        <button onClick={() => toggleMode('grid')} className={`px-3 py-1 text-sm rounded border ${analysisMode.grid ? 'bg-yellow-400 text-black' : 'bg-muted'}`}>Grid</button>
-        <button onClick={() => toggleMode('heatmap')} className={`px-3 py-1 text-sm rounded border ${analysisMode.heatmap ? 'bg-yellow-400 text-black' : 'bg-muted'}`}>Heatmap</button>
-        <button onClick={() => toggleMode('centering')} className={`px-3 py-1 text-sm rounded border ${analysisMode.centering ? 'bg-yellow-400 text-black' : 'bg-muted'}`}>Centering</button>
-        <button onClick={() => toggleMode('sharpness')} className={`px-3 py-1 text-sm rounded border ${analysisMode.sharpness ? 'bg-yellow-400 text-black' : 'bg-muted'}`}>Sharpness</button>
-        <button onClick={() => toggleMode('surface')} className={`px-3 py-1 text-sm rounded border ${analysisMode.surface ? 'bg-yellow-400 text-black' : 'bg-muted'}`}>Surface</button>
+        <button
+          onClick={() => setModule('centering')}
+          className="px-3 py-1 text-sm border rounded"
+        >
+          Centering
+        </button>
+
+        <button
+          onClick={() => setModule('surface')}
+          className="px-3 py-1 text-sm border rounded"
+        >
+          Surface
+        </button>
+
+        <button
+          onClick={() => setModule('edges')}
+          className="px-3 py-1 text-sm border rounded"
+        >
+          Edges
+        </button>
+
+        <button
+          onClick={() => setModule('corners')}
+          className="px-3 py-1 text-sm border rounded"
+        >
+          Corners
+        </button>
+
+        {/* ZOOM */}
+        <div className="ml-auto flex gap-2">
+          <button onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}>-</button>
+          <button onClick={() => setZoom(1)}>Reset</button>
+          <button onClick={() => setZoom(z => Math.min(4, z + 0.1))}>+</button>
+        </div>
 
       </div>
 
-      <div className="border rounded-xl p-6 bg-card space-y-4">
+      {/* IMAGE VIEWPORT */}
+      <div className="border rounded-xl p-6 bg-card">
+        <div className="overflow-auto">
+          <div
+            style={{
+              transform: `scale(${zoom})`,
+              transformOrigin: 'top center'
+            }}
+          >
 
-        <div className="relative">
-          <ImageViewer
-            image={image}
-            heatmap={heatmap}
-            showHeatmap={analysisMode.heatmap}
-            showGrid={analysisMode.grid}
-          />
+            <ImageViewer image={image} />
 
-          {analysisMode.centering && (
-            <CenteringOverlayWeb
-              guides={guides}
-              setGuides={updateGuides}
-            />
-          )}
+            {activeModule === 'centering' && (
+              <CenteringOverlayWeb
+                guides={guides}
+                setGuides={setGuides}
+              />
+            )}
+
+          </div>
         </div>
 
-        {/* SCORES (SAFE RENDERING) */}
-        <div className="space-y-2 text-sm">
+        {/* SCORES */}
+        <div className="mt-4 text-sm space-y-1">
 
-          {analysisMode.centering && centerScore?.width && centerScore?.height && (
-            <>
-              <div>
-                Width: <b>{centerScore.width.left} / {centerScore.width.right}</b>
-              </div>
-
-              <div>
-                Height: <b>{centerScore.height.top} / {centerScore.height.bottom}</b>
-              </div>
-            </>
+          {activeModule === 'centering' && centerScore !== null && (
+            <div>Centering: <b>{centerScore}/100</b></div>
           )}
 
-          {analysisMode.sharpness && sharpnessScore !== null && (
-            <div>Sharpness: <b>{sharpnessScore}/100</b></div>
-          )}
-
-          {analysisMode.surface && surfaceScore !== null && (
+          {activeModule === 'surface' && surfaceScore !== null && (
             <div>Surface: <b>{surfaceScore}/100</b></div>
+          )}
+
+          {activeModule === 'edges' && edgesScore !== null && (
+            <div>Edges: <b>{edgesScore}/100</b></div>
+          )}
+
+          {activeModule === 'corners' && cornersScore !== null && (
+            <div>Corners: <b>{cornersScore}/100</b></div>
           )}
 
           {finalGrade !== null && (
             <div className="text-lg mt-2">
-              Final Grade: <b>{finalGrade}/10 ({getLetterGrade(finalGrade)})</b>
+              Final Grade: <b>{finalGrade}/10</b>
             </div>
           )}
 

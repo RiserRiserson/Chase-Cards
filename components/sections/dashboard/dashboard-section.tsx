@@ -41,6 +41,12 @@ const defaultLayout: WidgetKey[] = [
 
 export function DashboardSection({ userId }: { userId?: string }) {
   const [layout, setLayout] = useState<WidgetKey[]>(defaultLayout)
+  const [mounted, setMounted] = useState(false)
+
+  /* MOUNT GUARD (fix hydration + dnd-kit mismatch) */
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   /* LOAD */
   useEffect(() => {
@@ -85,31 +91,34 @@ export function DashboardSection({ userId }: { userId?: string }) {
     }
   }
 
+  /* ---------------- RENDER ---------------- */
+
   return (
     <div className="space-y-6">
 
-      {/* ================= TOP ROW (FULL WIDTH) ================= */}
+      {/* TOP ROW (always render) */}
       <div>
         <StatsCards userId={userId} />
       </div>
 
-      {/* ================= DRAGGABLE GRID ================= */}
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={layout} strategy={verticalListSortingStrategy}>
+      {/* DND ONLY AFTER MOUNT (fix hydration mismatch) */}
+      {mounted && (
+        <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={layout} strategy={verticalListSortingStrategy}>
 
-          {/* 2-column layout */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            {layout.map((key) => (
-              <SortableItem key={key} id={key}>
-                {renderWidget(key)}
-              </SortableItem>
-            ))}
+              {layout.map((key) => (
+                <SortableItem key={key} id={key}>
+                  {renderWidget(key)}
+                </SortableItem>
+              ))}
 
-          </div>
+            </div>
 
-        </SortableContext>
-      </DndContext>
+          </SortableContext>
+        </DndContext>
+      )}
 
     </div>
   )
