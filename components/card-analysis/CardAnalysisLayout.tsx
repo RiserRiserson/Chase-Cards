@@ -5,6 +5,10 @@ import { UploadPanel, UploadPanelHandle } from './UploadPanel'
 import { analyzeCardImage } from './utils/grading'
 import { ImageViewer } from './ImageViewer'
 import { CenteringOverlayWeb } from './CenteringOverlayWeb'
+import { CornerInspector } from './CornerInspector'
+import { SurfaceInspector } from './SurfaceInspector'
+
+import type { SurfaceDefect } from './utils/grading/types'
 
 type AnalysisModule =
   | 'none'
@@ -36,6 +40,9 @@ export function CardAnalysisLayout() {
   const [edgesScore, setEdgesScore] = useState<number | null>(null)
   const [cornersScore, setCornersScore] = useState<number | null>(null)
   const [finalGrade, setFinalGrade] = useState<number | null>(null)
+
+  // surface defects for overlay
+  const [surfaceDefects, setSurfaceDefects] = useState<SurfaceDefect[]>([])
 
   const [activeModule, setActiveModule] = useState<AnalysisModule>('none')
 
@@ -69,13 +76,16 @@ export function CardAnalysisLayout() {
       setEdgesScore(result.edges.score)
       setCornersScore(result.corners.score)
       setFinalGrade(result.finalGrade)
+
+      setSurfaceDefects(result.surface.defects)
     }
   }
 
-  // ---------------- MODULE TOGGLE ----------------
   const setModule = (module: AnalysisModule) => {
     setActiveModule(prev => (prev === module ? 'none' : module))
   }
+
+  const isActive = (module: AnalysisModule) => activeModule === module
 
   // ---------------- EMPTY STATE ----------------
   if (!image) {
@@ -108,7 +118,6 @@ export function CardAnalysisLayout() {
   // ---------------- MAIN UI ----------------
   return (
     <div className="p-6 space-y-6">
-
       <div>
         <h2 className="text-2xl font-semibold">Card Analysis</h2>
         <p className="text-sm text-muted-foreground mt-1">
@@ -121,62 +130,100 @@ export function CardAnalysisLayout() {
 
         <button
           onClick={() => setModule('centering')}
-          className="px-3 py-1 text-sm border rounded"
+          className={`px-3 py-1 text-sm border rounded ${
+            isActive('centering')
+              ? 'bg-yellow-400 text-black border-yellow-400'
+              : 'bg-card'
+          }`}
         >
           Centering
         </button>
 
         <button
           onClick={() => setModule('surface')}
-          className="px-3 py-1 text-sm border rounded"
+          className={`px-3 py-1 text-sm border rounded ${
+            isActive('surface')
+              ? 'bg-yellow-400 text-black border-yellow-400'
+              : 'bg-card'
+          }`}
         >
           Surface
         </button>
 
         <button
           onClick={() => setModule('edges')}
-          className="px-3 py-1 text-sm border rounded"
+          className={`px-3 py-1 text-sm border rounded ${
+            isActive('edges')
+              ? 'bg-yellow-400 text-black border-yellow-400'
+              : 'bg-card'
+          }`}
         >
           Edges
         </button>
 
         <button
           onClick={() => setModule('corners')}
-          className="px-3 py-1 text-sm border rounded"
+          className={`px-3 py-1 text-sm border rounded ${
+            isActive('corners')
+              ? 'bg-yellow-400 text-black border-yellow-400'
+              : 'bg-card'
+          }`}
         >
           Corners
         </button>
 
-        {/* ZOOM */}
         <div className="ml-auto flex gap-2">
           <button onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}>-</button>
           <button onClick={() => setZoom(1)}>Reset</button>
           <button onClick={() => setZoom(z => Math.min(4, z + 0.1))}>+</button>
         </div>
-
       </div>
 
       {/* IMAGE VIEWPORT */}
-      <div className="border rounded-xl p-6 bg-card">
-        <div className="overflow-auto">
-          <div
-            style={{
-              transform: `scale(${zoom})`,
-              transformOrigin: 'top center'
-            }}
-          >
+<div className="border rounded-xl p-6 bg-card">
+  <div className="overflow-auto">
 
-            <ImageViewer image={image} />
+    <div
+      style={{
+        transform: `scale(${zoom})`,
+        transformOrigin: 'top center'
+      }}
+    >
 
-            {activeModule === 'centering' && (
-              <CenteringOverlayWeb
-                guides={guides}
-                setGuides={setGuides}
-              />
-            )}
+      {/* SINGLE RENDER LAYER */}
+      <div className="relative inline-block">
 
-          </div>
-        </div>
+        {/* BASE IMAGE ALWAYS FIRST */}
+        <img
+  src={image}
+  alt="test"
+  className="max-w-sm border"
+/>
+
+        {/* OVERLAYS ALWAYS ON TOP (NO CONDITIONAL HIDING OF IMAGE) */}
+
+        {activeModule === 'centering' && (
+          <CenteringOverlayWeb
+            guides={guides}
+            setGuides={setGuides}
+          />
+        )}
+
+        {activeModule === 'surface' && (
+          <SurfaceInspector
+            image={image}
+            defects={surfaceDefects}
+          />
+        )}
+
+        {activeModule === 'corners' && (
+          <CornerInspector image={image} />
+        )}
+
+      </div>
+
+    </div>
+  </div>
 
         {/* SCORES */}
         <div className="mt-4 text-sm space-y-1">
@@ -204,7 +251,6 @@ export function CardAnalysisLayout() {
           )}
 
         </div>
-
       </div>
     </div>
   )

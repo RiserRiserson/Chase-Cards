@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'CardVault - Trading Card Analysis',
+  title: 'ChaseCards - Collection Manager',
   description:
     'Analyze, track, and manage your trading card collection with real-time market data',
 }

@@ -1,34 +1,34 @@
-export type OverlayType = 'heatmap' | 'points' | 'mask'
-
-export type Point = {
-  x: number
-  y: number
-  intensity?: number
+export type CenteringScore = {
+  score: number
+  width: { left: number; right: number }
+  height: { top: number; bottom: number }
 }
 
-export type LayerOverlay =
-  | {
-      type: 'heatmap'
-      dataUrl: string
-    }
-  | {
-      type: 'points'
-      points: Point[]
-    }
-  | {
-      type: 'mask'
-      dataUrl: string
-    }
+export type SurfaceDefect = {
+  x: number
+  y: number
+  radius: number
+  severity: number
+}
 
-export type GradingLayer = {
+export type SurfaceScore = {
   score: number
-  overlays: LayerOverlay[]
+  defects: SurfaceDefect[]
+}
+
+export type EdgeScore = {
+  score: number
+}
+
+export type CornerScore = {
+  score: number
 }
 
 export type GradingResult = {
-  centering: GradingLayer
-  surface: GradingLayer
-  edges: GradingLayer
-  corners: GradingLayer
+  centering: CenteringScore
+  surface: SurfaceScore
+  edges: EdgeScore
+  corners: CornerScore
   finalGrade: number
+  heatmap: string | null
 }
