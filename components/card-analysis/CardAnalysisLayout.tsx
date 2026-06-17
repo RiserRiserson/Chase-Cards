@@ -7,6 +7,7 @@ import { ImageViewer } from './ImageViewer'
 import { CenteringOverlayWeb } from './CenteringOverlayWeb'
 import { CornerInspector } from './CornerInspector'
 import { SurfaceInspector } from './SurfaceInspector'
+import { EdgeInspector } from './EdgeInspector'
 
 import type { SurfaceDefect } from './utils/grading/types'
 
@@ -32,7 +33,6 @@ type GuideState = {
 export function CardAnalysisLayout() {
   const uploadRef = useRef<UploadPanelHandle | null>(null)
 
-  // ✅ forces UploadPanel reset so file picker always works correctly
   const [uploadKey, setUploadKey] = useState(0)
 
   const [image, setImage] = useState<string | null>(null)
@@ -44,6 +44,7 @@ export function CardAnalysisLayout() {
   const [finalGrade, setFinalGrade] = useState<number | null>(null)
 
   const [surfaceDefects, setSurfaceDefects] = useState<SurfaceDefect[]>([])
+
   const [activeModule, setActiveModule] = useState<AnalysisModule>('none')
 
   const [guides, setGuides] = useState<GuideState>({
@@ -55,7 +56,7 @@ export function CardAnalysisLayout() {
     h2: 30,
     h3: 50,
     h4: 60,
-    mode: 'vertical'
+    mode: 'horizontal'
   })
 
   // ---------------- ZOOM / PAN ----------------
@@ -103,29 +104,25 @@ export function CardAnalysisLayout() {
     panRef.current = { x: 0, y: 0 }
   }
 
-  // ---------------- RE-SELECT CARD ----------------
   const handleChooseCard = () => {
-    // reset upload component
     setUploadKey(k => k + 1)
 
-    // reset analysis state
     setImage(null)
     setSurfaceScore(null)
     setCenterScore(null)
     setEdgesScore(null)
     setCornersScore(null)
     setFinalGrade(null)
+
     setSurfaceDefects([])
 
     resetView()
 
-    // open file picker
     setTimeout(() => {
       uploadRef.current?.triggerFileSelect()
     }, 0)
   }
 
-  // ---------------- EMPTY STATE ----------------
   if (!image) {
     return (
       <div className="p-6 space-y-6">
@@ -137,8 +134,6 @@ export function CardAnalysisLayout() {
         </div>
 
         <div className="border rounded-xl p-6 bg-card space-y-4">
-
-          {/* KEY FIX: force reset capability */}
           <UploadPanel
             key={uploadKey}
             ref={uploadRef}
@@ -156,10 +151,8 @@ export function CardAnalysisLayout() {
     )
   }
 
-  // ---------------- MAIN UI ----------------
   return (
     <div className="p-6 space-y-6">
-
       <div>
         <h2 className="text-2xl font-semibold">Card Analysis</h2>
         <p className="text-sm text-muted-foreground mt-1">
@@ -186,8 +179,6 @@ export function CardAnalysisLayout() {
 
       {/* VIEWPORT */}
       <div className="border rounded-xl p-6 bg-card">
-
-        {/* ALWAYS WORKING RESELECT BUTTON */}
         <div className="flex gap-2 mb-3">
           <button
             onClick={handleChooseCard}
@@ -205,102 +196,43 @@ export function CardAnalysisLayout() {
         </div>
 
         <div className="overflow-auto">
-
           <div className="relative w-fit h-fit cursor-grab active:cursor-grabbing">
 
+            {/* 🔥 SINGLE SOURCE OF TRUTH SCALE (fixes all alignment issues) */}
             <div
-              onWheel={(e) => {
-                e.preventDefault()
-
-                setZoom(z => {
-                  const next = z - e.deltaY * 0.001
-                  return Math.min(4, Math.max(0.5, next))
-                })
-              }}
-
-              onPointerDown={(e) => {
-                dragging.current = true
-                last.current = { x: e.clientX, y: e.clientY }
-                touchMode.current = 'drag'
-              }}
-
-              onPointerMove={(e) => {
-                const touches = (e as any).touches
-
-                if (touches && touches.length === 2) {
-                  const dx = touches[0].clientX - touches[1].clientX
-                  const dy = touches[0].clientY - touches[1].clientY
-                  const dist = Math.sqrt(dx * dx + dy * dy)
-
-                  if (touchMode.current !== 'pinch') {
-                    touchMode.current = 'pinch'
-                    pinchStartDist.current = dist
-                    pinchStartZoom.current = zoom
-                    return
-                  }
-
-                  const scale = dist / pinchStartDist.current
-                  const nextZoom = Math.min(
-                    4,
-                    Math.max(0.5, pinchStartZoom.current * scale)
-                  )
-
-                  setZoom(nextZoom)
-                  return
-                }
-
-                if (!dragging.current) return
-
-                const dx = e.clientX - last.current.x
-                const dy = e.clientY - last.current.y
-
-                last.current = { x: e.clientX, y: e.clientY }
-
-                panRef.current = {
-                  x: panRef.current.x + dx,
-                  y: panRef.current.y + dy
-                }
-
-                setPan({ ...panRef.current })
-              }}
-
-              onPointerUp={() => {
-                dragging.current = false
-                touchMode.current = 'none'
-              }}
-
-              onPointerLeave={() => {
-                dragging.current = false
-                touchMode.current = 'none'
+              style={{
+                transform: `scale(0.75)`,
+                transformOrigin: 'top left'
               }}
             >
-
               <div
                 style={{
                   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                   transformOrigin: 'center'
                 }}
               >
-                <ImageViewer image={image} />
+                <div className="relative inline-block">
+                  <ImageViewer image={image} />
 
-                <div className="absolute inset-0">
-                  {activeModule === 'centering' && (
-                    <CenteringOverlayWeb
-                      guides={guides}
-                      setGuides={setGuides}
-                    />
-                  )}
+                  <div className="absolute inset-0">
+                    {activeModule === 'centering' && (
+                      <CenteringOverlayWeb
+                        guides={guides}
+                        setGuides={setGuides}
+                      />
+                    )}
 
-                  {activeModule === 'surface' && (
-                    <SurfaceInspector
-                      image={image}
-                      defects={surfaceDefects}
-                    />
-                  )}
+                    {activeModule === 'surface' && (
+                      <SurfaceInspector
+                        image={image}
+                        defects={surfaceDefects}
+                      />
+                    )}
+                  </div>
                 </div>
-
               </div>
             </div>
+
           </div>
         </div>
 
@@ -308,6 +240,13 @@ export function CardAnalysisLayout() {
         {activeModule === 'corners' && (
           <div className="mt-4">
             <CornerInspector image={image} />
+          </div>
+        )}
+
+        {/* EDGES */}
+        {activeModule === 'edges' && (
+          <div className="mt-4">
+            <EdgeInspector image={image} />
           </div>
         )}
 
@@ -331,7 +270,6 @@ export function CardAnalysisLayout() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   )

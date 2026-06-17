@@ -57,10 +57,10 @@ export function CornerInspector({ image }: Props) {
     <div className="mt-4">
       <div className="text-sm font-medium mb-2">Corner Inspection</div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 max-w-75">
         {corners.map((c, i) => (
           <div key={i} className="border rounded overflow-hidden bg-black">
-            <img src={c} alt={`corner-${i}`} className="w-full h-auto" />
+            <img src={c} alt={`corner-${i}`} className="w-full max-h-30 object-contain" />
           </div>
         ))}
       </div>

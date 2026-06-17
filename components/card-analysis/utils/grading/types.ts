@@ -16,8 +16,19 @@ export type SurfaceScore = {
   defects: SurfaceDefect[]
 }
 
+export type EdgePoint = {
+  x: number   // 0–1 normalized across image width
+  y: number   // 0–1 normalized across image height
+  severity: number // 0–1
+}
+
 export type EdgeScore = {
   score: number
+
+  top: EdgePoint[]
+  bottom: EdgePoint[]
+  left: EdgePoint[]
+  right: EdgePoint[]
 }
 
 export type CornerScore = {

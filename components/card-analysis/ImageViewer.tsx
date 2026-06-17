@@ -1,17 +1,21 @@
 'use client'
 
-interface ImageViewerProps {
-  image: string
+import React from 'react'
+
+type Props = {
+  image: string | null
 }
 
-export function ImageViewer({ image }: ImageViewerProps) {
+export function ImageViewer({ image }: { image: string }) {
   return (
-    <div className="relative border rounded-xl overflow-hidden bg-muted w-sm">
+    <div className="relative inline-block">
       <img
         src={image}
-        className="block w-sm max-w-sm h-auto"
-        alt="card"
-        draggable={false}
+        style={{
+          maxWidth: 600,   // adjust as needed (e.g. 500–800)
+          height: 'auto',
+          display: 'block'
+        }}
       />
     </div>
   )

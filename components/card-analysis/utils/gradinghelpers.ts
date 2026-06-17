@@ -75,19 +75,22 @@ export function analyzeCardImage(img: HTMLImageElement) {
     }
   }
 
-  const horizontalScore =
-    100 -
-    (Math.abs(leftWeight - rightWeight) /
-      (leftWeight + rightWeight || 1)) *
-      100
+  // ---------------- CENTRING (PROPORTIONAL OUTPUT) ----------------
 
-  const verticalScore =
-    100 -
-    (Math.abs(topWeight - bottomWeight) /
-      (topWeight + bottomWeight || 1)) *
-      100
+  const horizontalTotal = leftWeight + rightWeight || 1
+  const verticalTotal = topWeight + bottomWeight || 1
 
-  const center = (horizontalScore + verticalScore) / 2
+  const horizontal = {
+    left: Math.round((leftWeight / horizontalTotal) * 100),
+    right: Math.round((rightWeight / horizontalTotal) * 100)
+  }
+
+  const vertical = {
+    top: Math.round((topWeight / verticalTotal) * 100),
+    bottom: Math.round((bottomWeight / verticalTotal) * 100)
+  }
+
+  // ---------------- EDGE / SURFACE METRICS ----------------
 
   const avgEdge = edgeStrength / (pixelCount || 1)
   const sharpness = Math.min(100, (avgEdge / 35) * 100)
@@ -95,13 +98,21 @@ export function analyzeCardImage(img: HTMLImageElement) {
   const avgSurface = surfaceNoise / (pixelCount || 1)
   const surface = Math.max(0, 100 - avgSurface / 2)
 
+  // ---------------- FINAL GRADE ----------------
+
+  const centerQuality =
+    ((100 - Math.abs(horizontal.left - 50) * 2) +
+      (100 - Math.abs(vertical.top - 50) * 2)) /
+    2
+
   const grade =
-    (center / 10) * 0.45 +
-    (sharpness / 10) * 0.35 +
-    (surface / 10) * 0.2
+    (centerQuality / 100) * 0.45 +
+    (sharpness / 100) * 0.35 +
+    (surface / 100) * 0.2
 
   return {
-    center: Math.round(center),
+    horizontal,
+    vertical,
     sharpness: Math.round(sharpness),
     surface: Math.round(surface),
     finalGrade: Number(grade.toFixed(1)),
