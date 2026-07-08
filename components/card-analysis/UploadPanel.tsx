@@ -12,16 +12,20 @@ interface UploadPanelProps {
 
 export type UploadPanelHandle = {
   triggerFileSelect: () => void
+  triggerCameraSelect: () => void
 }
 
 export const UploadPanel = forwardRef<UploadPanelHandle, UploadPanelProps>(
   ({ onImageUpload }, ref) => {
-    const inputRef = useRef<HTMLInputElement | null>(null)
+    const uploadInputRef = useRef<HTMLInputElement | null>(null)
+    const cameraInputRef = useRef<HTMLInputElement | null>(null)
 
-    // Expose method to parent component
     useImperativeHandle(ref, () => ({
       triggerFileSelect: () => {
-        inputRef.current?.click()
+        uploadInputRef.current?.click()
+      },
+      triggerCameraSelect: () => {
+        cameraInputRef.current?.click()
       }
     }))
 
@@ -32,16 +36,24 @@ export const UploadPanel = forwardRef<UploadPanelHandle, UploadPanelProps>(
       const url = URL.createObjectURL(file)
       onImageUpload(file, url)
 
-      // allow re-uploading same file
       e.target.value = ''
     }
 
     return (
       <div>
         <input
-          ref={inputRef}
+          ref={uploadInputRef}
           type="file"
           accept="image/*"
+          onChange={handleChange}
+          className="hidden"
+        />
+
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
           onChange={handleChange}
           className="hidden"
         />

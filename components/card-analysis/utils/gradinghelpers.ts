@@ -75,19 +75,27 @@ export function analyzeCardImage(img: HTMLImageElement) {
     }
   }
 
-  // ---------------- CENTRING (PROPORTIONAL OUTPUT) ----------------
+    // ---------------- CENTRING (PROPORTIONAL OUTPUT) ----------------
 
   const horizontalTotal = leftWeight + rightWeight || 1
   const verticalTotal = topWeight + bottomWeight || 1
 
+  const horizontalLeft = Math.round((leftWeight / horizontalTotal) * 100)
+  const horizontalRight = 100 - horizontalLeft
+
+  const verticalTop = Math.round((topWeight / verticalTotal) * 100)
+  const verticalBottom = 100 - verticalTop
+
   const horizontal = {
-    left: Math.round((leftWeight / horizontalTotal) * 100),
-    right: Math.round((rightWeight / horizontalTotal) * 100)
+    left: horizontalLeft,
+    right: horizontalRight,
+    ratio: `${horizontalLeft}/${horizontalRight}`
   }
 
   const vertical = {
-    top: Math.round((topWeight / verticalTotal) * 100),
-    bottom: Math.round((bottomWeight / verticalTotal) * 100)
+    top: verticalTop,
+    bottom: verticalBottom,
+    ratio: `${verticalTop}/${verticalBottom}`
   }
 
   // ---------------- EDGE / SURFACE METRICS ----------------
@@ -100,22 +108,20 @@ export function analyzeCardImage(img: HTMLImageElement) {
 
   // ---------------- FINAL GRADE ----------------
 
-  const centerQuality =
-    ((100 - Math.abs(horizontal.left - 50) * 2) +
-      (100 - Math.abs(vertical.top - 50) * 2)) /
-    2
+  const balancePenalty =
+  Math.abs(horizontalLeft - 50) + Math.abs(verticalTop - 50)
 
-  const grade =
-    (centerQuality / 100) * 0.45 +
-    (sharpness / 100) * 0.35 +
-    (surface / 100) * 0.2
+const grade =
+  (sharpness / 100) * 0.35 +
+  (surface / 100) * 0.2 +
+  ((100 - balancePenalty * 2) / 100) * 0.45
 
   return {
-    horizontal,
-    vertical,
-    sharpness: Math.round(sharpness),
-    surface: Math.round(surface),
-    finalGrade: Number(grade.toFixed(1)),
-    heatmap: heatCanvas.toDataURL()
-  }
+  horizontal,
+  vertical,
+  sharpness: Math.round(sharpness),
+  surface: Math.round(surface),
+  finalGrade: Number(grade.toFixed(1)),
+  heatmap: heatCanvas.toDataURL()
+}
 }

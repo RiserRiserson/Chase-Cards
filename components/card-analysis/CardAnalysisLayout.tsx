@@ -34,17 +34,15 @@ export function CardAnalysisLayout() {
   const uploadRef = useRef<UploadPanelHandle | null>(null)
 
   const [uploadKey, setUploadKey] = useState(0)
-
   const [image, setImage] = useState<string | null>(null)
 
   const [surfaceScore, setSurfaceScore] = useState<number | null>(null)
-  const [centerScore, setCenterScore] = useState<number | null>(null)
+  const [centering, setCentering] = useState<any | null>(null)
   const [edgesScore, setEdgesScore] = useState<number | null>(null)
   const [cornersScore, setCornersScore] = useState<number | null>(null)
   const [finalGrade, setFinalGrade] = useState<number | null>(null)
 
   const [surfaceDefects, setSurfaceDefects] = useState<SurfaceDefect[]>([])
-
   const [activeModule, setActiveModule] = useState<AnalysisModule>('none')
 
   const [guides, setGuides] = useState<GuideState>({
@@ -59,17 +57,10 @@ export function CardAnalysisLayout() {
     mode: 'horizontal'
   })
 
-  // ---------------- ZOOM / PAN ----------------
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
 
   const panRef = useRef({ x: 0, y: 0 })
-  const dragging = useRef(false)
-  const last = useRef({ x: 0, y: 0 })
-
-  const touchMode = useRef<'none' | 'pinch' | 'drag'>('none')
-  const pinchStartDist = useRef(0)
-  const pinchStartZoom = useRef(1)
 
   const setModule = (module: AnalysisModule) => {
     setActiveModule(prev => (prev === module ? 'none' : module))
@@ -77,7 +68,6 @@ export function CardAnalysisLayout() {
 
   const isActive = (module: AnalysisModule) => activeModule === module
 
-  // ---------------- IMAGE UPLOAD ----------------
   const handleImageUpload = (file: File, url: string) => {
     const img = new Image()
     img.src = url
@@ -89,11 +79,10 @@ export function CardAnalysisLayout() {
       if (!result) return
 
       setSurfaceScore(result.surface.score)
-      setCenterScore(result.centering.score)
+      setCentering(result.centering)
       setEdgesScore(result.edges.score)
       setCornersScore(result.corners.score)
       setFinalGrade(result.finalGrade)
-
       setSurfaceDefects(result.surface.defects)
     }
   }
@@ -104,22 +93,34 @@ export function CardAnalysisLayout() {
     panRef.current = { x: 0, y: 0 }
   }
 
-  const handleChooseCard = () => {
+  const resetAnalysis = () => {
     setUploadKey(k => k + 1)
 
     setImage(null)
     setSurfaceScore(null)
-    setCenterScore(null)
+    setCentering(null)
     setEdgesScore(null)
     setCornersScore(null)
     setFinalGrade(null)
-
     setSurfaceDefects([])
+    setActiveModule('none')
 
     resetView()
+  }
+
+  const handleUploadImage = () => {
+    resetAnalysis()
 
     setTimeout(() => {
       uploadRef.current?.triggerFileSelect()
+    }, 0)
+  }
+
+  const handleTakePhoto = () => {
+    resetAnalysis()
+
+    setTimeout(() => {
+      uploadRef.current?.triggerCameraSelect()
     }, 0)
   }
 
@@ -129,7 +130,7 @@ export function CardAnalysisLayout() {
         <div>
           <h2 className="text-2xl font-semibold">Card Analysis</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Select a card image to begin analysis
+            Take a photo or upload a card image to begin
           </p>
         </div>
 
@@ -140,12 +141,21 @@ export function CardAnalysisLayout() {
             onImageUpload={handleImageUpload}
           />
 
-          <button
-            onClick={() => uploadRef.current?.triggerFileSelect()}
-            className="px-4 py-2 rounded bg-yellow-400 text-black font-medium hover:bg-yellow-300"
-          >
-            Choose Card
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => uploadRef.current?.triggerCameraSelect()}
+              className="w-full sm:w-auto px-4 py-3 rounded bg-yellow-400 text-black font-medium hover:bg-yellow-300"
+            >
+              Take Photo
+            </button>
+
+            <button
+              onClick={() => uploadRef.current?.triggerFileSelect()}
+              className="w-full sm:w-auto px-4 py-3 rounded bg-black text-white font-medium hover:bg-neutral-800"
+            >
+              Upload Image
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -156,11 +166,10 @@ export function CardAnalysisLayout() {
       <div>
         <h2 className="text-2xl font-semibold">Card Analysis</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Toggle grading modules
+          Choose an analysis option for this card
         </p>
       </div>
 
-      {/* MODULE TOGGLES */}
       <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-card">
         {(['centering', 'surface', 'edges', 'corners'] as AnalysisModule[]).map(m => (
           <button
@@ -177,19 +186,31 @@ export function CardAnalysisLayout() {
         ))}
       </div>
 
-      {/* VIEWPORT */}
       <div className="border rounded-xl p-6 bg-card">
-        <div className="flex gap-2 mb-3">
+        <UploadPanel
+          key={uploadKey}
+          ref={uploadRef}
+          onImageUpload={handleImageUpload}
+        />
+
+        <div className="flex flex-wrap gap-2 mb-3">
           <button
-            onClick={handleChooseCard}
+            onClick={handleTakePhoto}
             className="px-3 py-1 text-sm rounded bg-yellow-400 text-black"
           >
-            Choose Card
+            Take Photo
+          </button>
+
+          <button
+            onClick={handleUploadImage}
+            className="px-3 py-1 text-sm rounded bg-black text-white"
+          >
+            Upload Image
           </button>
 
           <button
             onClick={resetView}
-            className="px-3 py-1 text-sm rounded bg-black text-white"
+            className="px-3 py-1 text-sm rounded border"
           >
             Reset View
           </button>
@@ -197,8 +218,6 @@ export function CardAnalysisLayout() {
 
         <div className="overflow-auto">
           <div className="relative w-fit h-fit cursor-grab active:cursor-grabbing">
-
-            {/* 🔥 SINGLE SOURCE OF TRUTH SCALE (fixes all alignment issues) */}
             <div
               style={{
                 transform: `scale(0.75)`,
@@ -232,38 +251,45 @@ export function CardAnalysisLayout() {
                 </div>
               </div>
             </div>
-
           </div>
         </div>
 
-        {/* CORNERS */}
         {activeModule === 'corners' && (
           <div className="mt-4">
             <CornerInspector image={image} />
           </div>
         )}
 
-        {/* EDGES */}
         {activeModule === 'edges' && (
           <div className="mt-4">
             <EdgeInspector image={image} />
           </div>
         )}
 
-        {/* SCORES */}
         <div className="mt-4 text-sm space-y-1">
-          {activeModule === 'centering' && centerScore !== null && (
-            <div>Centering: <b>{centerScore}/100</b></div>
+          {activeModule === 'centering' && centering !== null && (
+            <div className="space-y-1">
+              <div>
+                Horizontal: <b>{centering.horizontal.ratio}</b>
+              </div>
+              <div>
+                Vertical: <b>{centering.vertical.ratio}</b>
+              </div>
+            </div>
           )}
+
           {activeModule === 'surface' && surfaceScore !== null && (
             <div>Surface: <b>{surfaceScore}/100</b></div>
           )}
+
           {activeModule === 'edges' && edgesScore !== null && (
             <div>Edges: <b>{edgesScore}/100</b></div>
           )}
+
           {activeModule === 'corners' && cornersScore !== null && (
             <div>Corners: <b>{cornersScore}/100</b></div>
           )}
+
           {finalGrade !== null && (
             <div className="text-lg mt-2">
               Final Grade: <b>{finalGrade}/10</b>

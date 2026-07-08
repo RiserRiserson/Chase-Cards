@@ -1,7 +1,14 @@
 export type CenteringScore = {
-  score: number
-  width: { left: number; right: number }
-  height: { top: number; bottom: number }
+  horizontal: {
+    left: number
+    right: number
+    ratio: string
+  }
+  vertical: {
+    top: number
+    bottom: number
+    ratio: string
+  }
 }
 
 export type SurfaceDefect = {
