@@ -8,11 +8,13 @@ import { CenteringOverlayWeb } from './CenteringOverlayWeb'
 import { CornerInspector } from './CornerInspector'
 import { SurfaceInspector } from './SurfaceInspector'
 import { EdgeInspector } from './EdgeInspector'
+import { CardIdentityPanel } from './CardIdentityPanel'
 
 import type { SurfaceDefect } from './utils/grading/types'
 
 type AnalysisModule =
   | 'none'
+  | 'identify'
   | 'centering'
   | 'surface'
   | 'edges'
@@ -67,6 +69,11 @@ export function CardAnalysisLayout() {
   }
 
   const isActive = (module: AnalysisModule) => activeModule === module
+
+  const getModuleLabel = (module: AnalysisModule) => {
+    if (module === 'identify') return 'Identify + Value'
+    return module.charAt(0).toUpperCase() + module.slice(1)
+  }
 
   const handleImageUpload = (file: File, url: string) => {
     const img = new Image()
@@ -171,7 +178,7 @@ export function CardAnalysisLayout() {
       </div>
 
       <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-card">
-        {(['centering', 'surface', 'edges', 'corners'] as AnalysisModule[]).map(m => (
+        {(['identify', 'centering', 'surface', 'edges', 'corners'] as AnalysisModule[]).map(m => (
           <button
             key={m}
             onClick={() => setModule(m)}
@@ -181,7 +188,7 @@ export function CardAnalysisLayout() {
                 : 'bg-card'
             }`}
           >
-            {m.charAt(0).toUpperCase() + m.slice(1)}
+            {getModuleLabel(m)}
           </button>
         ))}
       </div>
@@ -253,6 +260,10 @@ export function CardAnalysisLayout() {
             </div>
           </div>
         </div>
+
+        {activeModule === 'identify' && (
+  <CardIdentityPanel />
+)}
 
         {activeModule === 'corners' && (
           <div className="mt-4">
