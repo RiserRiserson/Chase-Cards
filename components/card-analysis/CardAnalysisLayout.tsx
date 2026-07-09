@@ -3,14 +3,18 @@
 import { useRef, useState } from 'react'
 import { UploadPanel, UploadPanelHandle } from './UploadPanel'
 import { analyzeCardImage } from './utils/grading'
+import { runCardAnalysisPipeline } from './cardAnalysisPipeline'
 import { ImageViewer } from './ImageViewer'
 import { CenteringOverlayWeb } from './CenteringOverlayWeb'
 import { CornerInspector } from './CornerInspector'
 import { SurfaceInspector } from './SurfaceInspector'
 import { EdgeInspector } from './EdgeInspector'
 import { CardIdentityPanel } from './CardIdentityPanel'
+import { CardGeometryDebugPanel } from './CardGeometryDebugPanel'
+import { CardGeometryOverlay } from './CardGeometryOverlay'
 
 import type { SurfaceDefect } from './utils/grading/types'
+import type { CardAnalysisPipelineResult } from './cardAnalysisPipeline'
 
 type AnalysisModule =
   | 'none'
@@ -37,6 +41,8 @@ export function CardAnalysisLayout() {
 
   const [uploadKey, setUploadKey] = useState(0)
   const [image, setImage] = useState<string | null>(null)
+  const [analysisResult, setAnalysisResult] =
+    useState<CardAnalysisPipelineResult | null>(null)
 
   const [surfaceScore, setSurfaceScore] = useState<number | null>(null)
   const [centering, setCentering] = useState<any | null>(null)
@@ -75,13 +81,16 @@ export function CardAnalysisLayout() {
     return module.charAt(0).toUpperCase() + module.slice(1)
   }
 
-  const handleImageUpload = (file: File, url: string) => {
+  const handleImageUpload = async (file: File, url: string) => {
+    setImage(url)
+
+    const pipelineResult = await runCardAnalysisPipeline(url)
+    setAnalysisResult(pipelineResult)
+
     const img = new Image()
-    img.src = url
+    img.src = pipelineResult.geometry.croppedImageUrl
 
     img.onload = () => {
-      setImage(url)
-
       const result = analyzeCardImage(img)
       if (!result) return
 
@@ -104,6 +113,7 @@ export function CardAnalysisLayout() {
     setUploadKey(k => k + 1)
 
     setImage(null)
+    setAnalysisResult(null)
     setSurfaceScore(null)
     setCentering(null)
     setEdgesScore(null)
@@ -167,6 +177,8 @@ export function CardAnalysisLayout() {
       </div>
     )
   }
+
+  const displayedImage = analysisResult?.geometry.croppedImageUrl ?? image
 
   return (
     <div className="p-6 space-y-6">
@@ -238,9 +250,11 @@ export function CardAnalysisLayout() {
                 }}
               >
                 <div className="relative inline-block">
-                  <ImageViewer image={image} />
+                  <ImageViewer image={displayedImage} />
 
                   <div className="absolute inset-0">
+                    <CardGeometryOverlay result={analysisResult} />
+
                     {activeModule === 'centering' && (
                       <CenteringOverlayWeb
                         guides={guides}
@@ -250,7 +264,7 @@ export function CardAnalysisLayout() {
 
                     {activeModule === 'surface' && (
                       <SurfaceInspector
-                        image={image}
+                        image={displayedImage}
                         defects={surfaceDefects}
                       />
                     )}
@@ -261,19 +275,21 @@ export function CardAnalysisLayout() {
           </div>
         </div>
 
+        <CardGeometryDebugPanel result={analysisResult} />
+
         {activeModule === 'identify' && (
-  <CardIdentityPanel />
-)}
+          <CardIdentityPanel />
+        )}
 
         {activeModule === 'corners' && (
           <div className="mt-4">
-            <CornerInspector image={image} />
+            <CornerInspector image={displayedImage} />
           </div>
         )}
 
         {activeModule === 'edges' && (
           <div className="mt-4">
-            <EdgeInspector image={image} />
+            <EdgeInspector image={displayedImage} />
           </div>
         )}
 
