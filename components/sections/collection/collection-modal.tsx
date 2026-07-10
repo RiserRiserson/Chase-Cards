@@ -1,190 +1,425 @@
 'use client'
 
+import type { Dispatch, SetStateAction } from 'react'
 import type { CardItem } from './card'
-import { useEffect, useState } from 'react'
 
-interface Props {
-  selectedCard: CardItem
+type CollectionModalProps = {
+  editCard: CardItem
+  setEditCard: Dispatch<SetStateAction<CardItem | null>>
+  onSave: (card: CardItem) => void
   onClose: () => void
-  onDelete: (id: string) => void
-  onSave: (value: number) => void
-  onUploadImage: (file: File) => void
 }
 
 export function CollectionModal({
-  selectedCard,
-  onClose,
-  onDelete,
+  editCard,
+  setEditCard,
   onSave,
-  onUploadImage
-}: Props) {
-  const [editMode, setEditMode] = useState(false)
-  const [editValue, setEditValue] = useState<number>(
-    selectedCard.estimated_value_cad ?? 0
-  )
+  onClose
+}: CollectionModalProps) {
+  const updateField = <K extends keyof CardItem>(
+    key: K,
+    value: CardItem[K]
+  ) => {
+    setEditCard(previous => {
+      if (!previous) return previous
 
-  // IMPORTANT: sync value when switching cards
-  useEffect(() => {
-    setEditValue(selectedCard.estimated_value_cad ?? 0)
-    setEditMode(false)
-  }, [selectedCard.id])
+      return {
+        ...previous,
+        [key]: value
+      }
+    })
+  }
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-background w-full max-w-md rounded-xl overflow-hidden shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-3xl rounded-xl bg-background shadow-xl"
+        onClick={event => event.stopPropagation()}
       >
+        {/* HEADER */}
+        <div className="flex items-center justify-between border-b p-4">
+          <h3 className="font-semibold">Edit Card</h3>
 
-        {/* IMAGE */}
-        <div className="aspect-2.5/3.5 bg-muted overflow-hidden">
-          {selectedCard.image_url ? (
-            <img
-              src={selectedCard.image_url}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
-              No Image
+          <button
+            type="button"
+            className="rounded border px-2 py-1 text-sm"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
+
+        {/* SCROLLABLE BODY */}
+        <div className="max-h-[80vh] space-y-6 overflow-y-auto p-4">
+          {/* SUMMARY */}
+          <div className="rounded border bg-muted/20 p-3">
+            <div className="text-sm font-semibold">
+              {editCard.full_card_name || 'Unnamed Card'}
             </div>
-          )}
-        </div>
-
-        {/* UPLOAD */}
-        <div className="p-3 border-b">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) onUploadImage(file)
-            }}
-          />
-        </div>
-
-        {/* CONTENT */}
-        <div className="p-4 space-y-4">
-
-          {/* HEADER */}
-          <div>
-            <h3 className="text-lg font-semibold">
-              {selectedCard.player ?? selectedCard.full_card_name}
-            </h3>
-
-            <p className="text-xs text-muted-foreground">
-              {selectedCard.year ?? '—'} • {selectedCard.brand ?? '—'} • {selectedCard.set ?? '—'}
-            </p>
           </div>
 
           {/* IDENTITY */}
-          <div className="border rounded p-3 space-y-1 text-sm">
-            <div className="font-semibold text-xs uppercase text-muted-foreground">
+          <div className="space-y-2 rounded border bg-background p-3">
+            <div className="text-xs font-semibold uppercase text-muted-foreground">
               Identity
             </div>
-            <div>Year: {selectedCard.year ?? '—'}</div>
-            <div>Brand: {selectedCard.brand ?? '—'}</div>
-            <div>Player: {selectedCard.player ?? '—'}</div>
-            <div>Card #: {selectedCard.card_number ?? '—'}</div>
-            <div>Set: {selectedCard.set ?? '—'}</div>
-            <div>Parallel: {selectedCard.subset_parallel ?? '—'}</div>
-            <div>Sport: {selectedCard.sport ?? '—'}</div>
+
+            <FieldRow
+              label="Full Card Name"
+              value={editCard.full_card_name ?? ''}
+              onChange={value => updateField('full_card_name', value)}
+            />
+
+            <NumberFieldRow
+              label="Year"
+              value={editCard.year}
+              onChange={value => updateField('year', value)}
+              step="1"
+            />
+
+            <FieldRow
+              label="Brand"
+              value={editCard.brand ?? ''}
+              onChange={value => updateField('brand', value)}
+            />
+
+            <FieldRow
+              label="Player"
+              value={editCard.player ?? ''}
+              onChange={value => updateField('player', value)}
+            />
+
+            <FieldRow
+              label="Card Number"
+              value={editCard.card_number ?? ''}
+              onChange={value => updateField('card_number', value)}
+            />
+
+            <FieldRow
+              label="Set"
+              value={editCard.set ?? ''}
+              onChange={value => updateField('set', value)}
+            />
+
+            <FieldRow
+              label="Parallel"
+              value={editCard.subset_parallel ?? ''}
+              onChange={value => updateField('subset_parallel', value)}
+            />
+
+            <FieldRow
+              label="Sport"
+              value={editCard.sport ?? ''}
+              onChange={value => updateField('sport', value)}
+            />
           </div>
 
           {/* ATTRIBUTES */}
-          <div className="border rounded p-3 space-y-1 text-sm">
-            <div className="font-semibold text-xs uppercase text-muted-foreground">
+          <div className="space-y-3 rounded border bg-background p-3">
+            <div className="text-xs font-semibold uppercase text-muted-foreground">
               Attributes
             </div>
-            <div>Rookie: {selectedCard.rookie ? 'Yes' : '—'}</div>
-            <div>Autograph: {selectedCard.autograph ? 'Yes' : '—'}</div>
-            <div>Memorabilia: {selectedCard.memorabilia ? 'Yes' : '—'}</div>
-            <div>Game Used: {selectedCard.game_used ? 'Yes' : '—'}</div>
-            <div>
-              Serial: {selectedCard.serial_numbered ? selectedCard.serial_number : '—'}
-            </div>
+
+            <CheckboxRow
+              label="Rookie"
+              checked={Boolean(editCard.rookie)}
+              onChange={value => updateField('rookie', value)}
+            />
+
+            <CheckboxRow
+              label="Autograph"
+              checked={Boolean(editCard.autograph)}
+              onChange={value => updateField('autograph', value)}
+            />
+
+            <CheckboxRow
+              label="Memorabilia"
+              checked={Boolean(editCard.memorabilia)}
+              onChange={value => updateField('memorabilia', value)}
+            />
+
+            <CheckboxRow
+              label="Game Used"
+              checked={Boolean(editCard.game_used)}
+              onChange={value => updateField('game_used', value)}
+            />
+
+            <CheckboxRow
+              label="Serial Numbered"
+              checked={Boolean(editCard.serial_numbered)}
+              onChange={value => {
+                updateField('serial_numbered', value)
+
+                if (!value) {
+                  updateField('serial_number', null)
+                }
+              }}
+            />
+
+            <FieldRow
+              label="Serial Number"
+              value={editCard.serial_number ?? ''}
+              onChange={value =>
+                updateField('serial_number', value === '' ? null : value)
+              }
+              disabled={!editCard.serial_numbered}
+            />
           </div>
 
           {/* CONDITION */}
-          <div className="border rounded p-3 space-y-1 text-sm">
-            <div className="font-semibold text-xs uppercase text-muted-foreground">
+          <div className="space-y-2 rounded border bg-background p-3">
+            <div className="text-xs font-semibold uppercase text-muted-foreground">
               Condition
             </div>
-            <div>Purchased: {selectedCard.condition_purchased ?? '—'}</div>
-            <div>Current: {selectedCard.current_condition ?? '—'}</div>
-            <div>Grading: {selectedCard.grading_company ?? '—'}</div>
+
+            <FieldRow
+              label="Purchased Condition"
+              value={editCard.condition_purchased ?? ''}
+              onChange={value =>
+                updateField(
+                  'condition_purchased',
+                  value === '' ? null : value
+                )
+              }
+            />
+
+            <FieldRow
+              label="Current Condition"
+              value={editCard.current_condition ?? ''}
+              onChange={value =>
+                updateField('current_condition', value === '' ? null : value)
+              }
+            />
+
+            <FieldRow
+              label="Grading Company"
+              value={editCard.grading_company ?? ''}
+              onChange={value =>
+                updateField('grading_company', value === '' ? null : value)
+              }
+            />
           </div>
 
           {/* PURCHASE */}
-          <div className="border rounded p-3 space-y-1 text-sm">
-            <div className="font-semibold text-xs uppercase text-muted-foreground">
+          <div className="space-y-2 rounded border bg-background p-3">
+            <div className="text-xs font-semibold uppercase text-muted-foreground">
               Purchase
             </div>
-            <div>Date: {selectedCard.purchase_date ?? '—'}</div>
-            <div>From: {selectedCard.purchase_from ?? '—'}</div>
-            <div>Price: ${selectedCard.purchase_price ?? 0}</div>
+
+            <FieldRow
+              label="Purchase Date"
+              type="date"
+              value={editCard.purchase_date ?? ''}
+              onChange={value =>
+                updateField('purchase_date', value === '' ? null : value)
+              }
+            />
+
+            <FieldRow
+              label="Purchased From"
+              value={editCard.purchase_from ?? ''}
+              onChange={value =>
+                updateField('purchase_from', value === '' ? null : value)
+              }
+            />
+
+            <NumberFieldRow
+              label="Purchase Price"
+              value={editCard.purchase_price}
+              onChange={value => updateField('purchase_price', value)}
+            />
           </div>
 
-          {/* VALUE & SALES */}
-          <div className="border rounded p-3 space-y-1 text-sm">
-            <div className="font-semibold text-xs uppercase text-muted-foreground">
-              Value & Sales
+          {/* VALUE AND SALES */}
+          <div className="space-y-3 rounded border bg-background p-3">
+            <div className="text-xs font-semibold uppercase text-muted-foreground">
+              Value &amp; Sales
             </div>
-            <div>Estimated Value: ${selectedCard.estimated_value_cad ?? 0}</div>
-            <div>Value Date: {selectedCard.value_date ?? '—'}</div>
-            <div>Sold: {selectedCard.card_sold ? 'Yes' : 'No'}</div>
-            <div>Sale Date: {selectedCard.sales_date ?? '—'}</div>
-            <div>Platform: {selectedCard.sales_platform ?? '—'}</div>
-            <div>Sale Price: ${selectedCard.sales_amount ?? 0}</div>
-            <div>Fees: ${selectedCard.fees ?? 0}</div>
-          </div>
 
-          {/* VALUE EDIT */}
-          <div className="flex justify-between text-sm border-t pt-3">
-            <span className="text-muted-foreground">Quick Value Edit</span>
+            <NumberFieldRow
+              label="Estimated Value"
+              value={editCard.estimated_value_cad}
+              onChange={value =>
+                updateField('estimated_value_cad', value)
+              }
+            />
 
-            {editMode ? (
-              <input
-                className="border rounded px-2 py-1 w-24 text-right"
-                type="number"
-                value={editValue}
-                onChange={(e) => setEditValue(Number(e.target.value))}
-              />
-            ) : (
-              <span>${selectedCard.estimated_value_cad ?? 0}</span>
-            )}
-          </div>
+            <FieldRow
+              label="Value Date"
+              type="date"
+              value={editCard.value_date ?? ''}
+              onChange={value =>
+                updateField('value_date', value === '' ? null : value)
+              }
+            />
 
-          {/* ACTIONS */}
-          <div className="flex gap-2 pt-3">
+            <CheckboxRow
+              label="Card Sold"
+              checked={Boolean(editCard.card_sold)}
+              onChange={value => {
+                updateField('card_sold', value)
 
-            <button
-              className="flex-1 bg-blue-600 text-white py-2 rounded"
-              onClick={() => {
-                if (editMode) {
-                  onSave(editValue)
-                  setEditMode(false)
-                } else {
-                  setEditMode(true)
+                if (!value) {
+                  updateField('sales_date', null)
+                  updateField('sales_platform', null)
+                  updateField('sales_amount', null)
+                  updateField('fees', null)
                 }
               }}
-            >
-              {editMode ? 'Save' : 'Edit'}
-            </button>
+            />
 
-            <button
-              className="flex-1 bg-red-600 text-white py-2 rounded"
-              onClick={() => onDelete(selectedCard.id)}
-            >
-              Delete
-            </button>
+            <FieldRow
+              label="Sale Date"
+              type="date"
+              value={editCard.sales_date ?? ''}
+              onChange={value =>
+                updateField('sales_date', value === '' ? null : value)
+              }
+              disabled={!editCard.card_sold}
+            />
 
+            <FieldRow
+              label="Sales Platform"
+              value={editCard.sales_platform ?? ''}
+              onChange={value =>
+                updateField('sales_platform', value === '' ? null : value)
+              }
+              disabled={!editCard.card_sold}
+            />
+
+            <NumberFieldRow
+              label="Sale Price"
+              value={editCard.sales_amount}
+              onChange={value => updateField('sales_amount', value)}
+              disabled={!editCard.card_sold}
+            />
+
+            <NumberFieldRow
+              label="Fees"
+              value={editCard.fees}
+              onChange={value => updateField('fees', value)}
+              disabled={!editCard.card_sold}
+            />
           </div>
+        </div>
 
+        {/* FOOTER */}
+        <div className="flex justify-end gap-2 border-t p-3">
+          <button
+            type="button"
+            className="rounded border px-3 py-1"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            className="rounded bg-green-600 px-3 py-1 text-white"
+            onClick={() => onSave(editCard)}
+          >
+            Save Changes
+          </button>
         </div>
       </div>
     </div>
+  )
+}
+
+type FieldRowProps = {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  type?: 'text' | 'date'
+  disabled?: boolean
+}
+
+function FieldRow({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  disabled = false
+}: FieldRowProps) {
+  return (
+    <div className="flex justify-between gap-3 text-sm">
+      <label className="w-1/3 text-muted-foreground">
+        {label}
+      </label>
+
+      <input
+        type={type}
+        className="w-2/3 rounded border px-2 py-1 disabled:opacity-50"
+        value={value}
+        disabled={disabled}
+        onChange={event => onChange(event.target.value)}
+      />
+    </div>
+  )
+}
+
+type NumberFieldRowProps = {
+  label: string
+  value: number | null | undefined
+  onChange: (value: number | null) => void
+  disabled?: boolean
+  step?: string
+}
+
+function NumberFieldRow({
+  label,
+  value,
+  onChange,
+  disabled = false,
+  step = '0.01'
+}: NumberFieldRowProps) {
+  return (
+    <div className="flex justify-between gap-3 text-sm">
+      <label className="w-1/3 text-muted-foreground">
+        {label}
+      </label>
+
+      <input
+        type="number"
+        step={step}
+        className="w-2/3 rounded border px-2 py-1 disabled:opacity-50"
+        value={value ?? ''}
+        disabled={disabled}
+        onChange={event => {
+          const inputValue = event.target.value
+
+          onChange(inputValue === '' ? null : Number(inputValue))
+        }}
+      />
+    </div>
+  )
+}
+
+type CheckboxRowProps = {
+  label: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}
+
+function CheckboxRow({
+  label,
+  checked,
+  onChange
+}: CheckboxRowProps) {
+  return (
+    <label className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-muted-foreground">
+        {label}
+      </span>
+
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={event => onChange(event.target.checked)}
+      />
+    </label>
   )
 }

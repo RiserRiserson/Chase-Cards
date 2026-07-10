@@ -277,9 +277,9 @@ export function CardAnalysisLayout() {
 
         <CardGeometryDebugPanel result={analysisResult} />
 
-        {activeModule === 'identify' && (
-          <CardIdentityPanel />
-        )}
+{activeModule === 'identify' && (
+  <CardIdentityPanel />
+)}
 
         {activeModule === 'corners' && (
           <div className="mt-4">
