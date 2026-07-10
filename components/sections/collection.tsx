@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { CardItem } from './collection/card'
 import { CollectionModal } from './collection/collection-modal'
+import { exportCollection } from './collection/exportCollection'
+import { downloadCollectionTemplate } from './collection/downloadCollectionTemplate'
 
 type VisibleSections = {
   identity: boolean
@@ -29,6 +31,9 @@ export function CollectionSection({ userId }: { userId?: string }) {
   /* ---------------- MODAL STATE ---------------- */
   const [editCard, setEditCard] = useState<CardItem | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+
+  /* ---------------- COLLECTION TOOLS ---------------- */
+  const [toolsOpen, setToolsOpen] = useState(false)
 
   const [visibleSections, setVisibleSections] =
     useState<VisibleSections>(() => {
@@ -160,23 +165,67 @@ export function CollectionSection({ userId }: { userId?: string }) {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2 text-xs">
-          {Object.entries(visibleSections).map(([key, value]) => (
+        <div className="flex flex-col items-end gap-3">
+          {/* COLLECTION TOOLS DROPDOWN */}
+          <div className="relative">
             <button
-              key={key}
               type="button"
-              onClick={() =>
-                toggleSectionVisibility(key as keyof VisibleSections)
-              }
-              className={`px-2 py-1 rounded border ${
-                value
-                  ? 'bg-primary text-black'
-                  : 'bg-muted text-gray-500'
-              }`}
+              onClick={() => setToolsOpen(previous => !previous)}
+              className="rounded bg-primary px-3 py-2 text-sm text-black"
             >
-              {key}
+              Collection Tools
+              <span className="ml-2 text-xs">
+                {toolsOpen ? '▲' : '▼'}
+              </span>
             </button>
-          ))}
+
+            {toolsOpen && (
+  <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded border bg-background shadow-lg">
+    <button
+      type="button"
+      disabled={cards.length === 0}
+      onClick={() => {
+        exportCollection(cards)
+        setToolsOpen(false)
+      }}
+      className="block w-full px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      Export Collection
+    </button>
+
+    <button
+      type="button"
+      onClick={() => {
+        downloadCollectionTemplate()
+        setToolsOpen(false)
+      }}
+      className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+    >
+      Download Template
+    </button>
+  </div>
+)}
+          </div>
+
+          {/* SECTION VISIBILITY BUTTONS */}
+          <div className="flex flex-wrap justify-end gap-2 text-xs">
+            {Object.entries(visibleSections).map(([key, value]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() =>
+                  toggleSectionVisibility(key as keyof VisibleSections)
+                }
+                className={`rounded border px-2 py-1 ${
+                  value
+                    ? 'bg-primary text-black'
+                    : 'bg-muted text-gray-500'
+                }`}
+              >
+                {key}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
