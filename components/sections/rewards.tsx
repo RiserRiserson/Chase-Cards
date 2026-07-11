@@ -3,6 +3,7 @@
 import {
   useEffect,
   useState,
+  type CSSProperties,
   type DragEvent,
   type KeyboardEvent
 } from 'react'
@@ -408,6 +409,27 @@ export function Rewards() {
     }
   }
 
+  // ---------------- PROGRESS ----------------
+  const getCompletedTaskCount = (reward: Reward) =>
+    reward.tasks.filter(task => task.done).length
+
+  const getProgressPercentage = (reward: Reward) => {
+    if (reward.tasks.length === 0) return 0
+
+    return Math.round(
+      (getCompletedTaskCount(reward) / reward.tasks.length) * 100
+    )
+  }
+
+  const getProgressStyle = (
+  percentage: number
+): CSSProperties => ({
+  background: `conic-gradient(
+    var(--primary) 0% ${percentage}%,
+    var(--muted) ${percentage}% 100%
+  )`
+})
+
   const isComplete = (reward: Reward) =>
     reward.tasks.length > 0 &&
     reward.tasks.every(task => task.done)
@@ -523,247 +545,273 @@ export function Rewards() {
           </p>
         )}
 
-        {rewards.map(reward => (
-          <div
-            key={reward.id}
-            className={`border rounded-lg p-4 bg-card space-y-3 ${
-              draggedRewardId === reward.id ? 'opacity-50' : ''
-            }`}
-            onDragOver={event => event.preventDefault()}
-            onDrop={() => handleRewardDrop(reward.id)}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3 min-w-0">
-                <button
-                  type="button"
-                  draggable
-                  onDragStart={event =>
-                    handleRewardDragStart(event, reward.id)
-                  }
-                  onDragEnd={handleRewardDragEnd}
-                  className="mt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0"
-                  aria-label={`Drag ${reward.title}`}
-                  title="Drag to reorder reward"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4"
-                    aria-hidden="true"
+        {rewards.map(reward => {
+          const completedTaskCount = getCompletedTaskCount(reward)
+          const progressPercentage = getProgressPercentage(reward)
+
+          return (
+            <div
+              key={reward.id}
+              className={`border rounded-lg p-4 bg-card space-y-3 ${
+                draggedRewardId === reward.id ? 'opacity-50' : ''
+              }`}
+              onDragOver={event => event.preventDefault()}
+              onDrop={() => handleRewardDrop(reward.id)}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={event =>
+                      handleRewardDragStart(event, reward.id)
+                    }
+                    onDragEnd={handleRewardDragEnd}
+                    className="mt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0"
+                    aria-label={`Drag ${reward.title}`}
+                    title="Drag to reorder reward"
                   >
-                    <circle cx="9" cy="5" r="1" />
-                    <circle cx="9" cy="12" r="1" />
-                    <circle cx="9" cy="19" r="1" />
-                    <circle cx="15" cy="5" r="1" />
-                    <circle cx="15" cy="12" r="1" />
-                    <circle cx="15" cy="19" r="1" />
-                  </svg>
-                </button>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-4 w-4"
+                      aria-hidden="true"
+                    >
+                      <circle cx="9" cy="5" r="1" />
+                      <circle cx="9" cy="12" r="1" />
+                      <circle cx="9" cy="19" r="1" />
+                      <circle cx="15" cy="5" r="1" />
+                      <circle cx="15" cy="12" r="1" />
+                      <circle cx="15" cy="19" r="1" />
+                    </svg>
+                  </button>
 
-                <div className="space-y-1 min-w-0">
-                  <div className="font-medium flex flex-wrap items-center gap-2">
-                    <span className="wrap-break-word">{reward.title}</span>
-
-                    {isComplete(reward) && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700">
-                        Completed
+                  <div className="space-y-1 min-w-0">
+                    <div className="font-medium flex flex-wrap items-center gap-2">
+                      <span className="wrap-break-word">
+                        {reward.title}
                       </span>
-                    )}
+
+                      {isComplete(reward) && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700">
+                          Completed
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      {completedTaskCount} / {reward.tasks.length}{' '}
+                      tasks complete
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4 shrink-0">
+                  {/* PROGRESS PIE */}
+                  <div
+                    className="relative h-16 w-16 rounded-full shrink-0"
+                    style={getProgressStyle(progressPercentage)}
+                    role="img"
+                    aria-label={`${progressPercentage}% complete`}
+                    title={`${progressPercentage}% complete`}
+                  >
+                    <div className="absolute inset-2 rounded-full bg-card flex items-center justify-center">
+                      <span className="text-xs font-semibold">
+                        {progressPercentage}%
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="text-xs text-muted-foreground">
-                    {reward.tasks.filter(task => task.done).length} /{' '}
-                    {reward.tasks.length} tasks complete
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => deleteReward(reward.id)}
+                    className="text-xs text-red-500 shrink-0"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => deleteReward(reward.id)}
-                className="text-xs text-red-500 shrink-0"
-              >
-                Delete
-              </button>
-            </div>
+              {/* TASKS */}
+              <div className="space-y-2">
+                {reward.tasks.map(task => {
+                  const isEditing =
+                    editingRewardId === reward.id &&
+                    editingTaskId === task.id
 
-            {/* TASKS */}
-            <div className="space-y-2">
-              {reward.tasks.map(task => {
-                const isEditing =
-                  editingRewardId === reward.id &&
-                  editingTaskId === task.id
+                  const isDragging =
+                    draggedTask?.rewardId === reward.id &&
+                    draggedTask.taskId === task.id
 
-                const isDragging =
-                  draggedTask?.rewardId === reward.id &&
-                  draggedTask.taskId === task.id
-
-                return (
-                  <div
-                    key={task.id}
-                    className={`flex items-center gap-2 rounded border border-transparent px-2 py-1 ${
-                      isDragging
-                        ? 'opacity-50 border-border bg-muted/40'
-                        : 'hover:border-border'
-                    }`}
-                    onDragOver={event => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                    }}
-                    onDrop={event =>
-                      handleTaskDrop(event, reward.id, task.id)
-                    }
-                  >
-                    <button
-                      type="button"
-                      draggable={!isEditing}
-                      onDragStart={event =>
-                        handleTaskDragStart(
-                          event,
-                          reward.id,
-                          task.id
-                        )
+                  return (
+                    <div
+                      key={task.id}
+                      className={`flex items-center gap-2 rounded border border-transparent px-2 py-1 ${
+                        isDragging
+                          ? 'opacity-50 border-border bg-muted/40'
+                          : 'hover:border-border'
+                      }`}
+                      onDragOver={event => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      onDrop={event =>
+                        handleTaskDrop(event, reward.id, task.id)
                       }
-                      onDragEnd={handleTaskDragEnd}
-                      disabled={isEditing}
-                      className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground disabled:cursor-default disabled:opacity-40 shrink-0"
-                      aria-label={`Drag task ${task.text}`}
-                      title="Drag to reorder task"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4"
-                        aria-hidden="true"
+                      <button
+                        type="button"
+                        draggable={!isEditing}
+                        onDragStart={event =>
+                          handleTaskDragStart(
+                            event,
+                            reward.id,
+                            task.id
+                          )
+                        }
+                        onDragEnd={handleTaskDragEnd}
+                        disabled={isEditing}
+                        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground disabled:cursor-default disabled:opacity-40 shrink-0"
+                        aria-label={`Drag task ${task.text}`}
+                        title="Drag to reorder task"
                       >
-                        <circle cx="9" cy="5" r="1" />
-                        <circle cx="9" cy="12" r="1" />
-                        <circle cx="9" cy="19" r="1" />
-                        <circle cx="15" cy="5" r="1" />
-                        <circle cx="15" cy="12" r="1" />
-                        <circle cx="15" cy="19" r="1" />
-                      </svg>
-                    </button>
-
-                    <input
-                      type="checkbox"
-                      checked={task.done}
-                      onChange={() =>
-                        toggleTask(reward.id, task.id)
-                      }
-                      disabled={isEditing}
-                      className="shrink-0"
-                    />
-
-                    {isEditing ? (
-                      <>
-                        <input
-                          className="flex-1 min-w-0 border rounded px-2 py-1 text-sm"
-                          value={editingTaskText}
-                          onChange={event =>
-                            setEditingTaskText(event.target.value)
-                          }
-                          onKeyDown={handleEditTaskKeyDown}
-                          autoFocus
-                        />
-
-                        <button
-                          type="button"
-                          onClick={saveTaskEdit}
-                          className="text-xs text-blue-500 shrink-0"
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="h-4 w-4"
+                          aria-hidden="true"
                         >
-                          save
-                        </button>
+                          <circle cx="9" cy="5" r="1" />
+                          <circle cx="9" cy="12" r="1" />
+                          <circle cx="9" cy="19" r="1" />
+                          <circle cx="15" cy="5" r="1" />
+                          <circle cx="15" cy="12" r="1" />
+                          <circle cx="15" cy="19" r="1" />
+                        </svg>
+                      </button>
 
-                        <button
-                          type="button"
-                          onClick={cancelEditTask}
-                          className="text-xs text-muted-foreground shrink-0"
-                        >
-                          cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span
-                          className={`flex-1 min-w-0 wrap-break-word text-sm ${
-                            task.done
-                              ? 'line-through text-muted-foreground'
-                              : ''
-                          }`}
-                        >
-                          {task.text}
-                        </span>
+                      <input
+                        type="checkbox"
+                        checked={task.done}
+                        onChange={() =>
+                          toggleTask(reward.id, task.id)
+                        }
+                        disabled={isEditing}
+                        className="shrink-0"
+                      />
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startEditTask(reward.id, task)
-                          }
-                          className="text-xs text-blue-500 shrink-0"
-                        >
-                          edit
-                        </button>
+                      {isEditing ? (
+                        <>
+                          <input
+                            className="flex-1 min-w-0 border rounded px-2 py-1 text-sm"
+                            value={editingTaskText}
+                            onChange={event =>
+                              setEditingTaskText(event.target.value)
+                            }
+                            onKeyDown={handleEditTaskKeyDown}
+                            autoFocus
+                          />
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            deleteTask(reward.id, task.id)
-                          }
-                          className="text-xs text-red-500 shrink-0"
-                        >
-                          delete
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                          <button
+                            type="button"
+                            onClick={saveTaskEdit}
+                            className="text-xs text-blue-500 shrink-0"
+                          >
+                            save
+                          </button>
 
-            {/* ADD TASK */}
-            <div className="flex gap-2">
-              <input
-                className="flex-1 border rounded px-3 py-1 text-sm"
-                placeholder="Add task..."
-                value={
-                  selectedRewardId === reward.id ? newTaskText : ''
-                }
-                onFocus={() => {
-                  if (selectedRewardId !== reward.id) {
-                    setSelectedRewardId(reward.id)
-                    setNewTaskText('')
+                          <button
+                            type="button"
+                            onClick={cancelEditTask}
+                            className="text-xs text-muted-foreground shrink-0"
+                          >
+                            cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span
+                            className={`flex-1 min-w-0 wrap-break-word text-sm ${
+                              task.done
+                                ? 'line-through text-muted-foreground'
+                                : ''
+                            }`}
+                          >
+                            {task.text}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startEditTask(reward.id, task)
+                            }
+                            className="text-xs text-blue-500 shrink-0"
+                          >
+                            edit
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteTask(reward.id, task.id)
+                            }
+                            className="text-xs text-red-500 shrink-0"
+                          >
+                            delete
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* ADD TASK */}
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 border rounded px-3 py-1 text-sm"
+                  placeholder="Add task..."
+                  value={
+                    selectedRewardId === reward.id
+                      ? newTaskText
+                      : ''
                   }
-                }}
-                onChange={event => {
-                  setSelectedRewardId(reward.id)
-                  setNewTaskText(event.target.value)
-                }}
-                onKeyDown={event =>
-                  handleNewTaskKeyDown(event, reward.id)
-                }
-              />
+                  onFocus={() => {
+                    if (selectedRewardId !== reward.id) {
+                      setSelectedRewardId(reward.id)
+                      setNewTaskText('')
+                    }
+                  }}
+                  onChange={event => {
+                    setSelectedRewardId(reward.id)
+                    setNewTaskText(event.target.value)
+                  }}
+                  onKeyDown={event =>
+                    handleNewTaskKeyDown(event, reward.id)
+                  }
+                />
 
-              <button
-                type="button"
-                onClick={() => addTask(reward.id)}
-                className="px-3 py-1 text-sm rounded bg-muted border"
-              >
-                Add
-              </button>
+                <button
+                  type="button"
+                  onClick={() => addTask(reward.id)}
+                  className="px-3 py-1 text-sm rounded bg-muted border"
+                >
+                  Add
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
