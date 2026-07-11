@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { supabase } from '@/lib/supabaseClient'
 
 type Category = 'NHL' | 'NFL' | 'NBA' | 'MLB' | 'Pokemon'
 
@@ -34,7 +35,10 @@ const RELEASE_WINDOWS: ReleaseWindow[] = [
     category: 'NFL',
     windows: [
       { label: 'Draft & rookies', months: ['Apr', 'May', 'Jun'] },
-      { label: 'Prizm / flagship season start', months: ['Aug', 'Sep', 'Oct'] },
+      {
+        label: 'Prizm / flagship season start',
+        months: ['Aug', 'Sep', 'Oct']
+      },
       { label: 'High-end releases', months: ['Dec', 'Jan'] }
     ]
   },
@@ -42,7 +46,10 @@ const RELEASE_WINDOWS: ReleaseWindow[] = [
     category: 'MLB',
     windows: [
       { label: 'Series 1', months: ['Feb'] },
-      { label: 'Chrome / mid-season products', months: ['Mar', 'Apr', 'May'] },
+      {
+        label: 'Chrome / mid-season products',
+        months: ['Mar', 'Apr', 'May']
+      },
       { label: 'Series 2', months: ['Jun'] },
       { label: 'Update Series', months: ['Oct', 'Nov'] }
     ]
@@ -58,20 +65,25 @@ const RELEASE_WINDOWS: ReleaseWindow[] = [
   {
     category: 'Pokemon',
     windows: [
-      { label: 'Main expansions', months: ['Jan', 'Mar', 'May', 'Aug', 'Nov'] }
+      {
+        label: 'Main expansions',
+        months: ['Jan', 'Mar', 'May', 'Aug', 'Nov']
+      }
     ]
   }
 ]
 
-/** ---------------- EVENTS (USER-DEFINED) ---------------- */
+/** ---------------- EVENTS ---------------- */
 type EventItem = {
   id: string
   name: string
   date: string
   location: string
+  website: string
+  created_by?: string | null
+  created_at?: string
+  updated_at?: string
 }
-
-const DEFAULT_EVENTS: EventItem[] = []
 
 /** ---------------- FILTERS ---------------- */
 const DEFAULT_FILTERS: Record<Category, boolean> = {
@@ -82,60 +94,122 @@ const DEFAULT_FILTERS: Record<Category, boolean> = {
   Pokemon: true
 }
 
-const STORAGE_EVENTS_KEY = 'upcomingEventsList'
 const STORAGE_FILTERS_KEY = 'upcomingEventsFilters'
 const STORAGE_EVENT_FILTERS_KEY = 'upcomingEventsEventFilters'
 
 export function UpcomingEvents() {
   const [mounted, setMounted] = useState(false)
+  const [loadingEvents, setLoadingEvents] = useState(true)
+  const [savingEvent, setSavingEvent] = useState(false)
+  const [eventError, setEventError] = useState('')
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
-  const [events, setEvents] = useState<EventItem[]>(DEFAULT_EVENTS)
+  const [events, setEvents] = useState<EventItem[]>([])
 
   const [showCreateModal, setShowCreateModal] = useState(false)
-
   const [editingId, setEditingId] = useState<string | null>(null)
 
   const [form, setForm] = useState<EventItem>({
     id: '',
     name: '',
     date: '',
-    location: ''
+    location: '',
+    website: ''
   })
 
   const [eventFilters, setEventFilters] = useState({
     showEvents: true
   })
 
-  /** ---------------- LOAD ---------------- */
+  /** ---------------- LOAD PERSONAL DISPLAY PREFERENCES ---------------- */
   useEffect(() => {
     try {
       const savedFilters = localStorage.getItem(STORAGE_FILTERS_KEY)
-      if (savedFilters) setFilters(JSON.parse(savedFilters))
 
-      const savedEvents = localStorage.getItem(STORAGE_EVENTS_KEY)
-      if (savedEvents) setEvents(JSON.parse(savedEvents))
+      if (savedFilters) {
+        setFilters(JSON.parse(savedFilters))
+      }
 
-      const savedEventFilters = localStorage.getItem(STORAGE_EVENT_FILTERS_KEY)
-      if (savedEventFilters) setEventFilters(JSON.parse(savedEventFilters))
-    } catch {}
+      const savedEventFilters = localStorage.getItem(
+        STORAGE_EVENT_FILTERS_KEY
+      )
+
+      if (savedEventFilters) {
+        setEventFilters(JSON.parse(savedEventFilters))
+      }
+    } catch {
+      // Ignore invalid local preference data.
+    }
 
     setMounted(true)
   }, [])
 
-  /** ---------------- SAVE ---------------- */
+  /** ---------------- LOAD SHARED EVENTS ---------------- */
+  const loadEvents = async () => {
+    setLoadingEvents(true)
+    setEventError('')
+
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .order('date', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('Unable to load calendar events:', error)
+      setEventError('Unable to load events.')
+      setLoadingEvents(false)
+      return
+    }
+
+    const loadedEvents = (data ?? []).map(event => ({
+      ...event,
+      website: event.website ?? ''
+    })) as EventItem[]
+
+    setEvents(loadedEvents)
+    setLoadingEvents(false)
+  }
+
+  useEffect(() => {
+    void loadEvents()
+  }, [])
+
+  /** ---------------- LIVE SHARED EVENT UPDATES ---------------- */
+  useEffect(() => {
+    const channel = supabase
+      .channel('shared-calendar-events')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'calendar_events'
+        },
+        () => {
+          void loadEvents()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [])
+
+  /** ---------------- SAVE PERSONAL DISPLAY PREFERENCES ---------------- */
   useEffect(() => {
     if (!mounted) return
-    localStorage.setItem(STORAGE_FILTERS_KEY, JSON.stringify(filters))
+
+    localStorage.setItem(
+      STORAGE_FILTERS_KEY,
+      JSON.stringify(filters)
+    )
   }, [filters, mounted])
 
   useEffect(() => {
     if (!mounted) return
-    localStorage.setItem(STORAGE_EVENTS_KEY, JSON.stringify(events))
-  }, [events, mounted])
 
-  useEffect(() => {
-    if (!mounted) return
     localStorage.setItem(
       STORAGE_EVENT_FILTERS_KEY,
       JSON.stringify(eventFilters)
@@ -144,15 +218,15 @@ export function UpcomingEvents() {
 
   /** ---------------- HELPERS ---------------- */
   const toggleCategory = (category: Category) => {
-    setFilters(prev => ({
-      ...prev,
-      [category]: !prev[category]
+    setFilters(previous => ({
+      ...previous,
+      [category]: !previous[category]
     }))
   }
 
   const toggleEvents = () => {
-    setEventFilters(prev => ({
-      showEvents: !prev.showEvents
+    setEventFilters(previous => ({
+      showEvents: !previous.showEvents
     }))
   }
 
@@ -161,84 +235,171 @@ export function UpcomingEvents() {
       id: '',
       name: '',
       date: '',
-      location: ''
+      location: '',
+      website: ''
     })
+
     setEditingId(null)
+    setEventError('')
   }
 
   const openCreate = () => {
     resetForm()
-    setEditingId(null)
     setShowCreateModal(true)
+  }
+
+  const closeModal = () => {
+    setShowCreateModal(false)
+    resetForm()
   }
 
   const startEdit = (event: EventItem) => {
     setEditingId(event.id)
+
     setForm({
       id: event.id,
       name: event.name,
       date: event.date,
-      location: event.location
+      location: event.location,
+      website: event.website ?? ''
     })
+
+    setEventError('')
     setShowCreateModal(true)
   }
 
-  const addEvent = () => {
-    if (!form.name.trim() || !form.date.trim() || !form.location.trim()) return
+  const normalizeWebsite = (website: string) => {
+    const trimmedWebsite = website.trim()
 
-    const newEvent: EventItem = {
-      id: crypto.randomUUID(),
-      name: form.name,
-      date: form.date,
-      location: form.location
+    if (!trimmedWebsite) {
+      return ''
     }
 
-    setEvents(prev => [...prev, newEvent])
+    if (
+      trimmedWebsite.startsWith('http://') ||
+      trimmedWebsite.startsWith('https://')
+    ) {
+      return trimmedWebsite
+    }
 
-    resetForm()
-    setShowCreateModal(false)
+    return `https://${trimmedWebsite}`
   }
 
-  const saveEdit = () => {
+  const addEvent = async () => {
+    const name = form.name.trim()
+    const date = form.date.trim()
+    const location = form.location.trim()
+    const website = normalizeWebsite(form.website)
+
+    if (!name || !date || !location) {
+      setEventError('Event name, date, and location are required.')
+      return
+    }
+
+    setSavingEvent(true)
+    setEventError('')
+
+    const {
+      data: { user }
+    } = await supabase.auth.getUser()
+
+    const { error } = await supabase
+      .from('calendar_events')
+      .insert({
+        name,
+        date,
+        location,
+        website: website || null,
+        created_by: user?.id ?? null
+      })
+
+    if (error) {
+      console.error('Unable to add calendar event:', error)
+      setEventError('Unable to add the event.')
+      setSavingEvent(false)
+      return
+    }
+
+    await loadEvents()
+
+    setSavingEvent(false)
+    closeModal()
+  }
+
+  const saveEdit = async () => {
     if (!editingId) return
 
-    setEvents(prev =>
-      prev.map(ev =>
-        ev.id === editingId
-          ? {
-              ...ev,
-              name: form.name,
-              date: form.date,
-              location: form.location
-            }
-          : ev
-      )
-    )
+    const name = form.name.trim()
+    const date = form.date.trim()
+    const location = form.location.trim()
+    const website = normalizeWebsite(form.website)
 
-    resetForm()
-    setShowCreateModal(false)
+    if (!name || !date || !location) {
+      setEventError('Event name, date, and location are required.')
+      return
+    }
+
+    setSavingEvent(true)
+    setEventError('')
+
+    const { error } = await supabase
+      .from('calendar_events')
+      .update({
+        name,
+        date,
+        location,
+        website: website || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', editingId)
+
+    if (error) {
+      console.error('Unable to update calendar event:', error)
+      setEventError('Unable to update the event.')
+      setSavingEvent(false)
+      return
+    }
+
+    await loadEvents()
+
+    setSavingEvent(false)
+    closeModal()
   }
 
-  const deleteEvent = (id: string) => {
-    const ok = window.confirm('Delete this event?')
-    if (!ok) return
+  const deleteEvent = async (id: string) => {
+    const confirmed = window.confirm('Delete this event?')
 
-    setEvents(prev => prev.filter(ev => ev.id !== id))
+    if (!confirmed) return
+
+    setEventError('')
+
+    const { error } = await supabase
+      .from('calendar_events')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Unable to delete calendar event:', error)
+      setEventError('Unable to delete the event.')
+      return
+    }
+
+    await loadEvents()
   }
 
   /** ---------------- DERIVE RELEASE WINDOWS ---------------- */
   const derivedReleases = useMemo(() => {
     const expanded: SetItem[] = []
 
-    RELEASE_WINDOWS.forEach(cat => {
-      if (!filters[cat.category]) return
+    RELEASE_WINDOWS.forEach(categoryItem => {
+      if (!filters[categoryItem.category]) return
 
-      cat.windows.forEach(w => {
+      categoryItem.windows.forEach(windowItem => {
         expanded.push({
-          name: w.label,
-          category: cat.category,
-          window: w.label,
-          months: w.months
+          name: windowItem.label,
+          category: categoryItem.category,
+          window: windowItem.label,
+          months: windowItem.months
         })
       })
     })
@@ -250,8 +411,8 @@ export function UpcomingEvents() {
     return [...events].sort((a, b) => a.date.localeCompare(b.date))
   }, [events])
 
-  const categoryColor = (cat: Category) => {
-    switch (cat) {
+  const categoryColor = (category: Category) => {
+    switch (category) {
       case 'NHL':
         return 'text-blue-500'
       case 'NFL':
@@ -266,14 +427,18 @@ export function UpcomingEvents() {
   }
 
   if (!mounted) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading...</div>
+    return (
+      <div className="p-6 text-sm text-muted-foreground">
+        Loading...
+      </div>
+    )
   }
 
   return (
     <div className="p-6 space-y-10">
-
       <div>
         <h2 className="text-2xl font-semibold">Upcoming Events</h2>
+
         <p className="text-muted-foreground mt-1">
           Track card shows, expos, and typical release windows
         </p>
@@ -281,9 +446,10 @@ export function UpcomingEvents() {
 
       {/* ================= EVENTS ================= */}
       <div className="space-y-3 mt-10">
-
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Card Shows & Events</h3>
+          <h3 className="text-lg font-semibold">
+            Card Shows & Events
+          </h3>
 
           <div className="flex gap-2">
             <button
@@ -306,10 +472,13 @@ export function UpcomingEvents() {
           </div>
         </div>
 
+        {eventError && !showCreateModal && (
+          <p className="text-sm text-red-500">{eventError}</p>
+        )}
+
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <div className="bg-card border rounded-lg p-4 w-full max-w-md space-y-3">
-
               <h3 className="font-semibold">
                 {editingId ? 'Edit Event' : 'Add Event'}
               </h3>
@@ -318,17 +487,23 @@ export function UpcomingEvents() {
                 className="w-full border rounded px-3 py-2 text-sm"
                 placeholder="Event name"
                 value={form.name}
-                onChange={e =>
-                  setForm(prev => ({ ...prev, name: e.target.value }))
+                onChange={event =>
+                  setForm(previous => ({
+                    ...previous,
+                    name: event.target.value
+                  }))
                 }
               />
 
               <input
+                type="date"
                 className="w-full border rounded px-3 py-2 text-sm"
-                placeholder="Date (YYYY-MM-DD)"
                 value={form.date}
-                onChange={e =>
-                  setForm(prev => ({ ...prev, date: e.target.value }))
+                onChange={event =>
+                  setForm(previous => ({
+                    ...previous,
+                    date: event.target.value
+                  }))
                 }
               />
 
@@ -336,27 +511,46 @@ export function UpcomingEvents() {
                 className="w-full border rounded px-3 py-2 text-sm"
                 placeholder="Location"
                 value={form.location}
-                onChange={e =>
-                  setForm(prev => ({ ...prev, location: e.target.value }))
+                onChange={event =>
+                  setForm(previous => ({
+                    ...previous,
+                    location: event.target.value
+                  }))
                 }
               />
 
+              <input
+                type="url"
+                className="w-full border rounded px-3 py-2 text-sm"
+                placeholder="Event website (optional)"
+                value={form.website}
+                onChange={event =>
+                  setForm(previous => ({
+                    ...previous,
+                    website: event.target.value
+                  }))
+                }
+              />
+
+              {eventError && (
+                <p className="text-sm text-red-500">{eventError}</p>
+              )}
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
-                  onClick={() => {
-                    setShowCreateModal(false)
-                    resetForm()
-                  }}
-                  className="px-3 py-1 text-sm border rounded"
+                  onClick={closeModal}
+                  disabled={savingEvent}
+                  className="px-3 py-1 text-sm border rounded disabled:opacity-50"
                 >
                   Cancel
                 </button>
 
                 <button
                   onClick={editingId ? saveEdit : addEvent}
-                  className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground"
+                  disabled={savingEvent}
+                  className="px-3 py-1 text-sm rounded bg-primary text-primary-foreground disabled:opacity-50"
                 >
-                  Save
+                  {savingEvent ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </div>
@@ -365,88 +559,128 @@ export function UpcomingEvents() {
 
         {eventFilters.showEvents && (
           <div className="space-y-3">
-            {filteredEvents.length === 0 && (
+            {loadingEvents && (
+              <p className="text-sm text-muted-foreground">
+                Loading events...
+              </p>
+            )}
+
+            {!loadingEvents && filteredEvents.length === 0 && (
               <p className="text-sm text-muted-foreground">
                 No events added.
               </p>
             )}
 
-            {filteredEvents.map(event => (
-              <div key={event.id} className="border rounded-lg p-4 bg-card">
-                <div className="font-medium">{event.name}</div>
-                <div className="text-sm text-muted-foreground">
-                  {event.date}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {event.location}
-                </div>
+            {!loadingEvents &&
+              filteredEvents.map(event => (
+                <div
+                  key={event.id}
+                  className="border rounded-lg p-4 bg-card"
+                >
+                  <div className="font-medium">{event.name}</div>
 
-                <div className="flex gap-3 mt-2">
-                  <button
-                    onClick={() => startEdit(event)}
-                    className="text-xs text-blue-500"
-                  >
-                    edit
-                  </button>
+                  <div className="text-sm text-muted-foreground">
+                    {event.date}
+                  </div>
 
-                  <button
-                    onClick={() => deleteEvent(event.id)}
-                    className="text-xs text-red-500"
-                  >
-                    delete
-                  </button>
+                  <div className="text-sm text-muted-foreground">
+                    {event.location}
+                  </div>
+
+                  {event.website && (
+                    <a
+                      href={event.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-2 text-sm text-blue-500 hover:underline"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="h-4 w-4"
+                        aria-hidden="true"
+                      >
+                        <path d="M15 3h6v6" />
+                        <path d="M10 14 21 3" />
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      </svg>
+
+                      Visit Event Website
+                    </a>
+                  )}
+
+                  <div className="flex gap-3 mt-2">
+                    <button
+                      onClick={() => startEdit(event)}
+                      className="text-xs text-blue-500"
+                    >
+                      edit
+                    </button>
+
+                    <button
+                      onClick={() => deleteEvent(event.id)}
+                      className="text-xs text-red-500"
+                    >
+                      delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         )}
       </div>
 
       {/* ================= RELEASE WINDOWS ================= */}
       <div className="space-y-4 mt-10">
-
         <h3 className="text-lg font-semibold">
           Release Windows (Typical Cycle)
         </h3>
 
         <div className="flex flex-wrap gap-2">
-          {(Object.keys(filters) as Category[]).map(cat => (
+          {(Object.keys(filters) as Category[]).map(category => (
             <button
-              key={cat}
-              onClick={() => toggleCategory(cat)}
+              key={category}
+              onClick={() => toggleCategory(category)}
               className={`px-3 py-1 rounded-full text-sm border ${
-                filters[cat]
+                filters[category]
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground'
               }`}
             >
-              {cat}
+              {category}
             </button>
           ))}
         </div>
 
         <div className="space-y-3">
-          {derivedReleases.map((r, idx) => (
+          {derivedReleases.map((release, index) => (
             <div
-              key={idx}
+              key={index}
               className="border rounded-lg p-4 flex justify-between bg-card"
             >
               <div>
-                <div className="font-medium">{r.name}</div>
+                <div className="font-medium">{release.name}</div>
+
                 <div className="text-sm text-muted-foreground">
-                  {r.months.join(', ')}
+                  {release.months.join(', ')}
                 </div>
               </div>
 
               <div
-                className={`text-sm font-semibold ${categoryColor(r.category)}`}
+                className={`text-sm font-semibold ${categoryColor(
+                  release.category
+                )}`}
               >
-                {r.category}
+                {release.category}
               </div>
             </div>
           ))}
         </div>
-
       </div>
     </div>
   )
