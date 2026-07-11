@@ -17,6 +17,7 @@ interface HeaderProps {
   onMenuToggle?: () => void
   searchValue?: string
   onSearchChange?: (value: string) => void
+  onSearchSubmit?: () => void
   searchPlaceholder?: string
   searchEnabled?: boolean
 }
@@ -25,8 +26,9 @@ export function Header({
   onMenuToggle,
   searchValue = '',
   onSearchChange,
+  onSearchSubmit,
   searchPlaceholder = 'Search cards...',
-  searchEnabled = false
+  searchEnabled = true
 }: HeaderProps) {
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -65,6 +67,15 @@ export function Header({
             onChange={event =>
               onSearchChange?.(event.target.value)
             }
+            onKeyDown={event => {
+              if (event.key !== 'Enter') return
+
+              event.preventDefault()
+
+              if (!searchValue.trim()) return
+
+              onSearchSubmit?.()
+            }}
             placeholder={searchPlaceholder}
             disabled={!searchEnabled}
             className="w-64 border-border bg-secondary pl-9 pr-9"

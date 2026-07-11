@@ -352,12 +352,21 @@ const displayedCards = cards.filter(card => {
             )}
           </div>
 
-          <p className="text-sm text-muted-foreground">
-            {readOnly
-              ? `${ownerName}'s collection · `
-              : ''}
-            {cards.length} cards
-          </p>
+          <div className="text-sm text-muted-foreground">
+  <div>
+    {readOnly
+      ? `${ownerName}'s collection · `
+      : ''}
+    {cards.length} {cards.length === 1 ? 'card' : 'cards'}
+  </div>
+
+  {searchQuery.trim() && (
+    <div className="text-xs">
+      Showing {displayedCards.length} matching{' '}
+      {displayedCards.length === 1 ? 'card' : 'cards'}
+    </div>
+  )}
+</div>
         </div>
 
         <div className="flex flex-col items-end gap-3">

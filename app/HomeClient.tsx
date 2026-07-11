@@ -69,13 +69,6 @@ export default function Home() {
     }
   }, [])
 
-  // ---------------- CLEAR COLLECTION SEARCH ----------------
-  useEffect(() => {
-    if (activeTab !== 'collection') {
-      setCollectionSearch('')
-    }
-  }, [activeTab])
-
   // ---------------- SESSION TRACKING ----------------
   useEffect(() => {
     const getSession = async () => {
@@ -211,9 +204,15 @@ export default function Home() {
         : tab.trim()
 
     setActiveTab(normalizedTab)
-
     router.push(`/?tab=${normalizedTab}`)
+    setSidebarOpen(false)
+  }
 
+  const handleCollectionSearchSubmit = () => {
+    if (!collectionSearch.trim()) return
+
+    setActiveTab('collection')
+    router.push('/?tab=collection')
     setSidebarOpen(false)
   }
 
@@ -250,8 +249,9 @@ export default function Home() {
           onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
           searchValue={collectionSearch}
           onSearchChange={setCollectionSearch}
+          onSearchSubmit={handleCollectionSearchSubmit}
           searchPlaceholder="Search collection..."
-          searchEnabled={activeTab === 'collection'}
+          searchEnabled
         />
 
         <main className="flex-1 overflow-auto p-6">
