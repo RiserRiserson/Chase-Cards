@@ -24,6 +24,12 @@ type VisibleSections = {
   value: boolean
 }
 
+type CollectionSectionProps = {
+  userId?: string
+  readOnly?: boolean
+  ownerName?: string
+}
+
 const defaultVisibleSections: VisibleSections = {
   identity: true,
   attributes: true,
@@ -32,21 +38,34 @@ const defaultVisibleSections: VisibleSections = {
   value: true
 }
 
-export function CollectionSection({ userId }: { userId?: string }) {
+export function CollectionSection({
+  userId,
+  readOnly = false,
+  ownerName = 'Collector'
+}: CollectionSectionProps) {
   const [cards, setCards] = useState<CardItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedCard, setSelectedCard] = useState<CardItem | null>(null)
+  const [selectedCard, setSelectedCard] =
+    useState<CardItem | null>(null)
 
   /* ---------------- MODAL STATE ---------------- */
-  const [editCard, setEditCard] = useState<CardItem | null>(null)
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [editCard, setEditCard] =
+    useState<CardItem | null>(null)
+
+  const [deleteConfirmId, setDeleteConfirmId] =
+    useState<string | null>(null)
 
   /* ---------------- COLLECTION TOOLS ---------------- */
   const [toolsOpen, setToolsOpen] = useState(false)
-  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [importResult, setImportResult] =
+    useState<ImportResult | null>(null)
+
   const [importing, setImporting] = useState(false)
-  const [importMessage, setImportMessage] = useState<string | null>(null)
-  const importInputRef = useRef<HTMLInputElement | null>(null)
+  const [importMessage, setImportMessage] =
+    useState<string | null>(null)
+
+  const importInputRef =
+    useRef<HTMLInputElement | null>(null)
 
   const [visibleSections, setVisibleSections] =
     useState<VisibleSections>(() => {
@@ -54,7 +73,9 @@ export function CollectionSection({ userId }: { userId?: string }) {
         return defaultVisibleSections
       }
 
-      const saved = localStorage.getItem('collection_visible_sections')
+      const saved = localStorage.getItem(
+        'collection_visible_sections'
+      )
 
       if (!saved) {
         return defaultVisibleSections
@@ -74,7 +95,18 @@ export function CollectionSection({ userId }: { userId?: string }) {
     )
   }, [visibleSections])
 
-  const toggleSectionVisibility = (key: keyof VisibleSections) => {
+  useEffect(() => {
+    setSelectedCard(null)
+    setEditCard(null)
+    setDeleteConfirmId(null)
+    setImportResult(null)
+    setImportMessage(null)
+    setToolsOpen(false)
+  }, [userId, readOnly])
+
+  const toggleSectionVisibility = (
+    key: keyof VisibleSections
+  ) => {
     setVisibleSections(previous => ({
       ...previous,
       [key]: !previous[key]
@@ -98,6 +130,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
     if (error) {
       console.error('Unable to load collection:', error)
+      setCards([])
       setLoading(false)
       return
     }
@@ -114,6 +147,11 @@ export function CollectionSection({ userId }: { userId?: string }) {
   const handleImportFile = async (
     event: ChangeEvent<HTMLInputElement>
   ) => {
+    if (readOnly) {
+      event.target.value = ''
+      return
+    }
+
     const file = event.target.files?.[0]
 
     if (!file) return
@@ -129,7 +167,9 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
       setImportResult({
         cards: [],
-        errors: ['The selected spreadsheet could not be read.']
+        errors: [
+          'The selected spreadsheet could not be read.'
+        ]
       })
     } finally {
       event.target.value = ''
@@ -138,13 +178,22 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
   /* ---------------- CONFIRM IMPORT ---------------- */
   const confirmImport = async () => {
+    if (readOnly) return
+
     if (!userId) {
-      setImportMessage('You must be signed in before importing cards.')
+      setImportMessage(
+        'You must be signed in before importing cards.'
+      )
       return
     }
 
-    if (!importResult || importResult.cards.length === 0) {
-      setImportMessage('There are no valid cards to import.')
+    if (
+      !importResult ||
+      importResult.cards.length === 0
+    ) {
+      setImportMessage(
+        'There are no valid cards to import.'
+      )
       return
     }
 
@@ -168,8 +217,15 @@ export function CollectionSection({ userId }: { userId?: string }) {
       .insert(rowsToInsert)
 
     if (error) {
-      console.error('Unable to import collection:', error)
-      setImportMessage('The collection could not be imported.')
+      console.error(
+        'Unable to import collection:',
+        error
+      )
+
+      setImportMessage(
+        'The collection could not be imported.'
+      )
+
       setImporting(false)
       return
     }
@@ -177,18 +233,23 @@ export function CollectionSection({ userId }: { userId?: string }) {
     await fetchCards()
 
     setImportResult(null)
+
     setImportMessage(
       `${rowsToInsert.length} cards imported successfully.`
     )
+
     setImporting(false)
   }
 
   /* ---------------- SAVE EDIT ---------------- */
   const saveCard = async (updated: CardItem) => {
+    if (readOnly) return
+
     const { error } = await supabase
       .from('cards')
       .update(updated)
       .eq('id', updated.id)
+      .eq('user_id', userId)
 
     if (error) {
       console.error('Unable to save card:', error)
@@ -202,7 +263,9 @@ export function CollectionSection({ userId }: { userId?: string }) {
     )
 
     setSelectedCard(previous =>
-      previous?.id === updated.id ? updated : previous
+      previous?.id === updated.id
+        ? updated
+        : previous
     )
 
     setEditCard(null)
@@ -210,10 +273,13 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
   /* ---------------- DELETE ---------------- */
   const confirmDelete = async (id: string) => {
+    if (readOnly) return
+
     const { error } = await supabase
       .from('cards')
       .delete()
       .eq('id', id)
+      .eq('user_id', userId)
 
     if (error) {
       console.error('Unable to delete card:', error)
@@ -248,11 +314,22 @@ export function CollectionSection({ userId }: { userId?: string }) {
       {/* HEADER */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold">
-            Collection
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-2xl font-semibold">
+              Collection
+            </h2>
+
+            {readOnly && (
+              <span className="rounded border px-2 py-1 text-xs text-muted-foreground">
+                Read only
+              </span>
+            )}
+          </div>
 
           <p className="text-sm text-muted-foreground">
+            {readOnly
+              ? `${ownerName}'s collection · `
+              : ''}
             {cards.length} cards
           </p>
         </div>
@@ -288,18 +365,20 @@ export function CollectionSection({ userId }: { userId?: string }) {
                   Export Collection
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImportResult(null)
-                    setImportMessage(null)
-                    importInputRef.current?.click()
-                    setToolsOpen(false)
-                  }}
-                  className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                >
-                  Import Collection
-                </button>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportResult(null)
+                      setImportMessage(null)
+                      importInputRef.current?.click()
+                      setToolsOpen(false)
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                  >
+                    Import Collection
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -341,15 +420,13 @@ export function CollectionSection({ userId }: { userId?: string }) {
         </div>
       </div>
 
-      {/* IMPORT MESSAGE */}
-      {importMessage && (
+      {!readOnly && importMessage && (
         <div className="rounded-xl border bg-background p-4 text-sm">
           {importMessage}
         </div>
       )}
 
-      {/* IMPORT PREVIEW */}
-      {importResult && (
+      {!readOnly && importResult && (
         <div className="space-y-3 rounded-xl border bg-background p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -382,22 +459,18 @@ export function CollectionSection({ userId }: { userId?: string }) {
               </div>
 
               <div className="max-h-48 space-y-1 overflow-y-auto text-sm">
-                {importResult.errors.map((error, index) => (
-                  <div key={`${error}-${index}`}>
-                    {error}
-                  </div>
-                ))}
+                {importResult.errors.map(
+                  (error, index) => (
+                    <div key={`${error}-${index}`}>
+                      {error}
+                    </div>
+                  )
+                )}
               </div>
             </div>
           ) : (
             <div className="rounded border border-green-500/40 bg-green-500/10 p-3 text-sm">
               The spreadsheet passed validation.
-            </div>
-          )}
-
-          {importMessage && (
-            <div className="rounded border p-3 text-sm">
-              {importMessage}
             </div>
           )}
 
@@ -440,18 +513,20 @@ export function CollectionSection({ userId }: { userId?: string }) {
           </div>
         ) : (
           cards.map(card => {
-            const isOpen = selectedCard?.id === card.id
+            const isOpen =
+              selectedCard?.id === card.id
 
             return (
               <div
                 key={card.id}
                 className="border-b last:border-b-0"
               >
-                {/* ROW */}
                 <button
                   type="button"
                   onClick={() =>
-                    setSelectedCard(isOpen ? null : card)
+                    setSelectedCard(
+                      isOpen ? null : card
+                    )
                   }
                   className="grid w-full grid-cols-[80px_2fr_80px_2fr_2fr_120px_120px] items-center gap-3 px-4 py-3 text-left hover:bg-muted/30"
                 >
@@ -516,52 +591,52 @@ export function CollectionSection({ userId }: { userId?: string }) {
                   </div>
                 </button>
 
-                {/* ACTIONS */}
-                <div className="flex gap-2 px-4 pb-2">
-                  <button
-                    type="button"
-                    className="rounded border px-2 py-1 text-xs"
-                    onClick={() => setEditCard(card)}
-                  >
-                    Edit
-                  </button>
-
-                  {deleteConfirmId === card.id ? (
-                    <>
-                      <button
-                        type="button"
-                        className="rounded bg-red-600 px-2 py-1 text-xs text-white"
-                        onClick={() =>
-                          confirmDelete(card.id)
-                        }
-                      >
-                        Confirm
-                      </button>
-
-                      <button
-                        type="button"
-                        className="rounded border px-2 py-1 text-xs"
-                        onClick={() =>
-                          setDeleteConfirmId(null)
-                        }
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
+                {!readOnly && (
+                  <div className="flex gap-2 px-4 pb-2">
                     <button
                       type="button"
-                      className="rounded border px-2 py-1 text-xs text-red-500"
-                      onClick={() =>
-                        setDeleteConfirmId(card.id)
-                      }
+                      className="rounded border px-2 py-1 text-xs"
+                      onClick={() => setEditCard(card)}
                     >
-                      Delete
+                      Edit
                     </button>
-                  )}
-                </div>
 
-                {/* EXPANDED DETAILS */}
+                    {deleteConfirmId === card.id ? (
+                      <>
+                        <button
+                          type="button"
+                          className="rounded bg-red-600 px-2 py-1 text-xs text-white"
+                          onClick={() =>
+                            confirmDelete(card.id)
+                          }
+                        >
+                          Confirm
+                        </button>
+
+                        <button
+                          type="button"
+                          className="rounded border px-2 py-1 text-xs"
+                          onClick={() =>
+                            setDeleteConfirmId(null)
+                          }
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="rounded border px-2 py-1 text-xs text-red-500"
+                        onClick={() =>
+                          setDeleteConfirmId(card.id)
+                        }
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {isOpen && (
                   <div className="space-y-6 bg-muted/20 p-5">
                     <div className="rounded border bg-background p-3">
@@ -631,13 +706,16 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
                             <div>
                               Game Used:{' '}
-                              {card.game_used ? 'Yes' : '—'}
+                              {card.game_used
+                                ? 'Yes'
+                                : '—'}
                             </div>
 
                             <div>
                               Serial:{' '}
                               {card.serial_numbered
-                                ? card.serial_number ?? 'Yes'
+                                ? card.serial_number ??
+                                  'Yes'
                                 : '—'}
                             </div>
                           </div>
@@ -659,12 +737,14 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
                             <div>
                               Current:{' '}
-                              {card.current_condition ?? '—'}
+                              {card.current_condition ??
+                                '—'}
                             </div>
 
                             <div>
                               Grading:{' '}
-                              {card.grading_company ?? '—'}
+                              {card.grading_company ??
+                                '—'}
                             </div>
                           </div>
                         </div>
@@ -704,7 +784,8 @@ export function CollectionSection({ userId }: { userId?: string }) {
                           <div className="grid gap-2 text-sm md:grid-cols-2">
                             <div>
                               Estimated Value: $
-                              {card.estimated_value_cad ?? 0}
+                              {card.estimated_value_cad ??
+                                0}
                             </div>
 
                             <div>
@@ -714,7 +795,9 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
                             <div>
                               Sold:{' '}
-                              {card.card_sold ? 'Yes' : 'No'}
+                              {card.card_sold
+                                ? 'Yes'
+                                : 'No'}
                             </div>
 
                             <div>
@@ -724,7 +807,8 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
                             <div>
                               Platform:{' '}
-                              {card.sales_platform ?? '—'}
+                              {card.sales_platform ??
+                                '—'}
                             </div>
 
                             <div>
@@ -747,17 +831,17 @@ export function CollectionSection({ userId }: { userId?: string }) {
         )}
       </div>
 
-      {/* HIDDEN IMPORT FILE INPUT */}
-      <input
-        ref={importInputRef}
-        type="file"
-        accept=".xlsx,.xls"
-        className="hidden"
-        onChange={handleImportFile}
-      />
+      {!readOnly && (
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          className="hidden"
+          onChange={handleImportFile}
+        />
+      )}
 
-      {/* FULL EDIT MODAL */}
-      {editCard && (
+      {!readOnly && editCard && (
         <CollectionModal
           editCard={editCard}
           setEditCard={setEditCard}

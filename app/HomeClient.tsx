@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { Sidebar } from '@/components/sidebar'
@@ -18,6 +18,13 @@ import { AnalyticsSection } from '@/components/sections/analytics'
 
 import { supabase } from '@/lib/supabaseClient'
 
+type Profile = {
+  id: string
+  display_name: string
+  email: string | null
+  card_count: number
+}
+
 export default function Home() {
   const router = useRouter()
 
@@ -26,13 +33,17 @@ export default function Home() {
   const [user, setUser] = useState<any>(null)
   const [addOpen, setAddOpen] = useState(false)
 
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [profilesLoading, setProfilesLoading] = useState(false)
+  const [selectedCollectionUserId, setSelectedCollectionUserId] =
+    useState<string>('')
+
   // Restore tab from URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
 
     let tab = params.get('tab')?.trim()
 
-    // Legacy cleanup
     if (tab === 'trade-tree') {
       tab = 'card-chain'
     }
@@ -63,19 +74,28 @@ export default function Home() {
       const sessionUser = data.session?.user ?? null
       setUser(sessionUser)
 
-      if (!sessionUser) {
+      if (sessionUser) {
+        setSelectedCollectionUserId(previous =>
+          previous || sessionUser.id
+        )
+      } else {
         router.push('/auth')
       }
     }
 
-    getSession()
+    void getSession()
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         const sessionUser = session?.user ?? null
         setUser(sessionUser)
 
-        if (!sessionUser) {
+        if (sessionUser) {
+          setSelectedCollectionUserId(previous =>
+            previous || sessionUser.id
+          )
+        } else {
+          setSelectedCollectionUserId('')
           router.push('/auth')
         }
       }
@@ -86,9 +106,84 @@ export default function Home() {
     }
   }, [router])
 
+  // LOAD PROFILE OPTIONS AND CARD COUNTS
+useEffect(() => {
+  if (!user?.id) {
+    setProfiles([])
+    return
+  }
+
+  const loadProfiles = async () => {
+    setProfilesLoading(true)
+
+    const [
+      { data: profileData, error: profileError },
+      { data: cardData, error: cardError }
+    ] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, display_name, email')
+        .order('display_name', { ascending: true }),
+
+      supabase
+        .from('cards')
+        .select('user_id')
+    ])
+
+    if (profileError) {
+      console.error('Unable to load profiles:', profileError)
+      setProfiles([])
+      setProfilesLoading(false)
+      return
+    }
+
+    if (cardError) {
+      console.error('Unable to load card counts:', cardError)
+    }
+
+    const cardCounts = new Map<string, number>()
+
+    for (const card of cardData ?? []) {
+      if (!card.user_id) continue
+
+      cardCounts.set(
+        card.user_id,
+        (cardCounts.get(card.user_id) ?? 0) + 1
+      )
+    }
+
+    const profilesWithCounts = (profileData ?? []).map(profile => ({
+      ...profile,
+      card_count: cardCounts.get(profile.id) ?? 0
+    }))
+
+    setProfiles(profilesWithCounts)
+    setProfilesLoading(false)
+  }
+
+  void loadProfiles()
+}, [user?.id])
+
+  const activeCollectionUserId =
+    selectedCollectionUserId || user?.id || ''
+
+  const isOwnCollection =
+    Boolean(user?.id) &&
+    activeCollectionUserId === user.id
+
+  const selectedCollectionProfile = useMemo(
+    () =>
+      profiles.find(
+        profile => profile.id === activeCollectionUserId
+      ) ?? null,
+    [profiles, activeCollectionUserId]
+  )
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     setUser(null)
+    setProfiles([])
+    setSelectedCollectionUserId('')
     router.push('/auth')
   }
 
@@ -107,36 +202,47 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen bg-background">
-
       {/* SIDEBAR */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 lg:relative lg:z-0 transform transition-transform duration-200 ease-in-out ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-in-out lg:relative lg:z-0 ${
+          sidebarOpen
+            ? 'translate-x-0'
+            : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <Sidebar
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          onAddCard={() => setAddOpen(true)}
+          onAddCard={() => {
+            if (
+              activeTab === 'collection' &&
+              !isOwnCollection
+            ) {
+              setSelectedCollectionUserId(user?.id ?? '')
+            }
+
+            setAddOpen(true)
+          }}
           userEmail={user?.email}
         />
       </div>
 
       {/* MAIN */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Header
+          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+        />
 
-        <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-
-        <main className="flex-1 p-6 overflow-auto">
-
-          
+        <main className="flex-1 overflow-auto p-6">
           {/* DASHBOARD HEADER */}
           {activeTab === 'dashboard' && (
             <div className="mb-6 space-y-4">
-
               <div>
-                <h1 className="text-2xl font-bold">Dashboard</h1>
-                <p className="text-muted-foreground mt-1">
+                <h1 className="text-2xl font-bold">
+                  Dashboard
+                </h1>
+
+                <p className="mt-1 text-muted-foreground">
                   Track your trading card collection performance
                 </p>
               </div>
@@ -148,38 +254,96 @@ export default function Home() {
                   </span>
 
                   <button
+                    type="button"
                     onClick={handleSignOut}
-                    className="px-3 py-1 rounded bg-red-600 text-white text-xs"
+                    className="rounded bg-red-600 px-3 py-1 text-xs text-white"
                   >
                     Sign Out
                   </button>
                 </div>
               )}
-
             </div>
           )}
 
           {/* PAGE CONTENT */}
-{activeTab === 'dashboard' ? (
-  <DashboardSection userId={user?.id} />
-) : activeTab === 'collection' ? (
-  <CollectionSection userId={user?.id} />
-) : activeTab === 'analytics' ? (
-  <AnalyticsSection />
-) : activeTab === 'card-analysis' ? (
-  <CardAnalysisLayout />
-) : activeTab === 'card-chain' ? (
-  <CardChain />
-) : activeTab === 'chase-cards' ? (
-  <ChaseCards />
-) : activeTab === 'upcoming-events' ? (
-  <UpcomingEvents />
-) : activeTab === 'rewards' ? (
-  <Rewards />
-) : (
-  <DashboardSection userId={user?.id} />
-)}
+          {activeTab === 'dashboard' ? (
+            <DashboardSection userId={user?.id} />
+          ) : activeTab === 'collection' ? (
+            <div className="space-y-4">
+              {/* COLLECTION OWNER SELECTOR */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-4">
+                <div>
+                  <div className="text-sm font-semibold">
+                    Viewing Collection
+                  </div>
 
+                  <div className="text-xs text-muted-foreground">
+                    Select a collector to view their cards.
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {!isOwnCollection && (
+                    <span className="rounded border px-2 py-1 text-xs text-muted-foreground">
+                      Read only
+                    </span>
+                  )}
+
+                  <select
+                    value={activeCollectionUserId}
+                    onChange={event =>
+                      setSelectedCollectionUserId(
+                        event.target.value
+                      )
+                    }
+                    disabled={profilesLoading}
+                    className="min-w-48 rounded border bg-background px-3 py-2 text-sm"
+                  >
+                    {profilesLoading && (
+                      <option value="">
+                        Loading collectors...
+                      </option>
+                    )}
+
+                    {!profilesLoading &&
+                      profiles.map(profile => (
+                        <option
+  key={profile.id}
+  value={profile.id}
+>
+  {profile.display_name} ({profile.card_count}{' '}
+  {profile.card_count === 1 ? 'card' : 'cards'})
+  {profile.id === user?.id ? ' — You' : ''}
+</option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              <CollectionSection
+                userId={activeCollectionUserId}
+                readOnly={!isOwnCollection}
+                ownerName={
+                  selectedCollectionProfile?.display_name ??
+                  'Selected collector'
+                }
+              />
+            </div>
+          ) : activeTab === 'analytics' ? (
+            <AnalyticsSection />
+          ) : activeTab === 'card-analysis' ? (
+            <CardAnalysisLayout />
+          ) : activeTab === 'card-chain' ? (
+            <CardChain />
+          ) : activeTab === 'chase-cards' ? (
+            <ChaseCards />
+          ) : activeTab === 'upcoming-events' ? (
+            <UpcomingEvents />
+          ) : activeTab === 'rewards' ? (
+            <Rewards />
+          ) : (
+            <DashboardSection userId={user?.id} />
+          )}
         </main>
       </div>
 
