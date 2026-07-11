@@ -31,12 +31,61 @@ type CollectionSectionProps = {
   searchQuery?: string
 }
 
+type SortOption =
+  | 'newest'
+  | 'oldest'
+  | 'player-asc'
+  | 'player-desc'
+  | 'year-desc'
+  | 'year-asc'
+  | 'value-desc'
+  | 'value-asc'
+  | 'purchase-desc'
+  | 'purchase-asc'
+
+type BooleanFilter = 'all' | 'yes' | 'no'
+
+type CollectionFilters = {
+  sport: string
+  rookie: BooleanFilter
+  autograph: BooleanFilter
+  memorabilia: BooleanFilter
+  serialNumbered: BooleanFilter
+  graded: BooleanFilter
+  sold: BooleanFilter
+}
+
+type OpenMenu =
+  | 'sort'
+  | 'filter'
+  | 'view'
+  | 'tools'
+  | null
+
 const defaultVisibleSections: VisibleSections = {
   identity: true,
   attributes: true,
   condition: true,
   purchase: true,
   value: true
+}
+
+const defaultCollectionFilters: CollectionFilters = {
+  sport: 'all',
+  rookie: 'all',
+  autograph: 'all',
+  memorabilia: 'all',
+  serialNumbered: 'all',
+  graded: 'all',
+  sold: 'all'
+}
+
+const sectionLabels: Record<keyof VisibleSections, string> = {
+  identity: 'Identity',
+  attributes: 'Attributes',
+  condition: 'Condition',
+  purchase: 'Purchase',
+  value: 'Value'
 }
 
 export function CollectionSection({
@@ -47,6 +96,7 @@ export function CollectionSection({
 }: CollectionSectionProps) {
   const [cards, setCards] = useState<CardItem[]>([])
   const [loading, setLoading] = useState(true)
+
   const [selectedCard, setSelectedCard] =
     useState<CardItem | null>(null)
 
@@ -57,18 +107,29 @@ export function CollectionSection({
   const [deleteConfirmId, setDeleteConfirmId] =
     useState<string | null>(null)
 
-  /* ---------------- COLLECTION TOOLS ---------------- */
-  const [toolsOpen, setToolsOpen] = useState(false)
-  const [importResult, setImportResult] =
-    useState<ImportResult | null>(null)
+  /* ---------------- CONTROL MENUS ---------------- */
+const [openMenu, setOpenMenu] =
+  useState<OpenMenu>(null)
+
+const [sortOption, setSortOption] =
+  useState<SortOption>('newest')
+
+const [filters, setFilters] =
+  useState<CollectionFilters>(defaultCollectionFilters)
+
+/* ---------------- COLLECTION TOOLS ---------------- */
+const [importResult, setImportResult] =
+  useState<ImportResult | null>(null)
 
   const [importing, setImporting] = useState(false)
+
   const [importMessage, setImportMessage] =
     useState<string | null>(null)
 
   const importInputRef =
     useRef<HTMLInputElement | null>(null)
 
+  /* ---------------- VISIBLE SECTIONS ---------------- */
   const [visibleSections, setVisibleSections] =
     useState<VisibleSections>(() => {
       if (typeof window === 'undefined') {
@@ -103,8 +164,18 @@ export function CollectionSection({
     setDeleteConfirmId(null)
     setImportResult(null)
     setImportMessage(null)
-    setToolsOpen(false)
+    setOpenMenu(null)
   }, [userId, readOnly])
+
+  const toggleMenu = (menu: Exclude<OpenMenu, null>) => {
+    setOpenMenu(previous =>
+      previous === menu ? null : menu
+    )
+  }
+
+  const closeMenus = () => {
+    setOpenMenu(null)
+  }
 
   const toggleSectionVisibility = (
     key: keyof VisibleSections
@@ -115,6 +186,21 @@ export function CollectionSection({
     }))
   }
 
+  const showAllSections = () => {
+    setVisibleSections(defaultVisibleSections)
+  }
+
+  const hideAllSections = () => {
+    setVisibleSections({
+      identity: false,
+      attributes: false,
+      condition: false,
+      purchase: false,
+      value: false
+    })
+  }
+
+  /* ---------------- LOAD CARDS ---------------- */
   const fetchCards = async () => {
     if (!userId) {
       setCards([])
@@ -145,32 +231,186 @@ export function CollectionSection({
     void fetchCards()
   }, [userId])
 
-const displayedCards = cards.filter(card => {
-  const query = searchQuery.trim().toLowerCase()
+  /* ---------------- SEARCHED, FILTERED, SORTED CARDS ---------------- */
+const displayedCards = cards
+  .filter(card => {
+    const query = searchQuery.trim().toLowerCase()
 
-  if (!query) return true
+    const matchesSearch = !query
+      ? true
+      : [
+          card.full_card_name,
+          card.player,
+          card.brand,
+          card.set,
+          card.card_number,
+          card.subset_parallel,
+          card.sport,
+          card.grading_company
+        ].some(value =>
+          String(value ?? '')
+            .toLowerCase()
+            .includes(query)
+        )
 
-  const searchableValues = [
-    card.full_card_name,
-    card.player,
-    card.brand,
-    card.set,
-    card.card_number,
-    card.subset_parallel,
-    card.sport,
-    card.grading_company
-  ]
+    const matchesBooleanFilter = (
+      value: boolean | null | undefined,
+      filter: BooleanFilter
+    ) => {
+      if (filter === 'all') return true
+      if (filter === 'yes') return Boolean(value)
 
-  return searchableValues.some(value =>
-    String(value ?? '')
-      .toLowerCase()
-      .includes(query)
+      return !value
+    }
+
+    const matchesSport =
+      filters.sport === 'all' ||
+      String(card.sport ?? '').toLowerCase() ===
+        filters.sport.toLowerCase()
+
+    const matchesRookie = matchesBooleanFilter(
+      card.rookie,
+      filters.rookie
+    )
+
+    const matchesAutograph = matchesBooleanFilter(
+      card.autograph,
+      filters.autograph
+    )
+
+    const matchesMemorabilia = matchesBooleanFilter(
+      card.memorabilia,
+      filters.memorabilia
+    )
+
+    const matchesSerialNumbered = matchesBooleanFilter(
+      card.serial_numbered,
+      filters.serialNumbered
+    )
+
+    const matchesGraded =
+      filters.graded === 'all'
+        ? true
+        : filters.graded === 'yes'
+          ? Boolean(card.grading_company?.trim())
+          : !card.grading_company?.trim()
+
+    const matchesSold = matchesBooleanFilter(
+      card.card_sold,
+      filters.sold
+    )
+
+    return (
+      matchesSearch &&
+      matchesSport &&
+      matchesRookie &&
+      matchesAutograph &&
+      matchesMemorabilia &&
+      matchesSerialNumbered &&
+      matchesGraded &&
+      matchesSold
+    )
+  })
+  .sort((cardA, cardB) => {
+    switch (sortOption) {
+      case 'oldest':
+        return String(cardA.id).localeCompare(
+          String(cardB.id)
+        )
+
+      case 'player-asc':
+        return String(
+          cardA.player ?? cardA.full_card_name ?? ''
+        ).localeCompare(
+          String(
+            cardB.player ??
+              cardB.full_card_name ??
+              ''
+          )
+        )
+
+      case 'player-desc':
+        return String(
+          cardB.player ?? cardB.full_card_name ?? ''
+        ).localeCompare(
+          String(
+            cardA.player ??
+              cardA.full_card_name ??
+              ''
+          )
+        )
+
+      case 'year-desc':
+        return (
+          Number(cardB.year ?? 0) -
+          Number(cardA.year ?? 0)
+        )
+
+      case 'year-asc':
+        return (
+          Number(cardA.year ?? 0) -
+          Number(cardB.year ?? 0)
+        )
+
+      case 'value-desc':
+        return (
+          Number(cardB.estimated_value_cad ?? 0) -
+          Number(cardA.estimated_value_cad ?? 0)
+        )
+
+      case 'value-asc':
+        return (
+          Number(cardA.estimated_value_cad ?? 0) -
+          Number(cardB.estimated_value_cad ?? 0)
+        )
+
+      case 'purchase-desc':
+        return (
+          Number(cardB.purchase_price ?? 0) -
+          Number(cardA.purchase_price ?? 0)
+        )
+
+      case 'purchase-asc':
+        return (
+          Number(cardA.purchase_price ?? 0) -
+          Number(cardB.purchase_price ?? 0)
+        )
+
+            case 'newest':
+      default:
+        return String(cardB.id).localeCompare(
+          String(cardA.id)
+        )
+    }
+  })
+
+/* ---------------- FILTER HELPERS ---------------- */
+const availableSports = Array.from(
+  new Set(
+    cards
+      .map(card => card.sport?.trim())
+      .filter((sport): sport is string => Boolean(sport))
   )
-})
+).sort((sportA, sportB) =>
+  sportA.localeCompare(sportB)
+)
 
+const updateFilter = <Key extends keyof CollectionFilters>(
+  key: Key,
+  value: CollectionFilters[Key]
+) => {
+  setFilters(previous => ({
+    ...previous,
+    [key]: value
+  }))
+}
 
-  /* ---------------- IMPORT FILE ---------------- */
-  const handleImportFile = async (
+const clearFilters = () => {
+  setFilters(defaultCollectionFilters)
+}
+
+/* ---------------- IMPORT FILE ---------------- */
+const handleImportFile = async (
     event: ChangeEvent<HTMLInputElement>
   ) => {
     if (readOnly) {
@@ -189,7 +429,10 @@ const displayedCards = cards.filter(card => {
 
       setImportResult(result)
     } catch (error) {
-      console.error('Unable to read import file:', error)
+      console.error(
+        'Unable to read import file:',
+        error
+      )
 
       setImportResult({
         cards: [],
@@ -336,131 +579,450 @@ const displayedCards = cards.filter(card => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div
+      className="space-y-6 p-6"
+      onClick={event => {
+        if (event.currentTarget === event.target) {
+          closeMenus()
+        }
+      }}
+    >
       {/* HEADER */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-2xl font-semibold">
-              Collection
-            </h2>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-2xl font-semibold">
+                Collection
+              </h2>
 
-            {readOnly && (
-              <span className="rounded border px-2 py-1 text-xs text-muted-foreground">
-                Read only
-              </span>
-            )}
+              {readOnly && (
+                <span className="rounded border px-2 py-1 text-xs text-muted-foreground">
+                  Read only
+                </span>
+              )}
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              <div>
+                {readOnly
+                  ? `${ownerName}'s collection · `
+                  : ''}
+
+                {cards.length}{' '}
+                {cards.length === 1 ? 'card' : 'cards'}
+              </div>
+
+              {searchQuery.trim() && (
+                <div className="text-xs">
+                  Showing {displayedCards.length} matching{' '}
+                  {displayedCards.length === 1
+                    ? 'card'
+                    : 'cards'}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="text-sm text-muted-foreground">
-  <div>
-    {readOnly
-      ? `${ownerName}'s collection · `
-      : ''}
-    {cards.length} {cards.length === 1 ? 'card' : 'cards'}
-  </div>
+          {/* COLLECTION CONTROL TOOLBAR */}
+          <div className="flex flex-wrap justify-end gap-2">
+            {/* SORT */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => toggleMenu('sort')}
+                className={`rounded border px-3 py-2 text-sm ${
+                  openMenu === 'sort'
+                    ? 'bg-primary text-black'
+                    : 'bg-background hover:bg-muted'
+                }`}
+              >
+                Sort
 
-  {searchQuery.trim() && (
-    <div className="text-xs">
-      Showing {displayedCards.length} matching{' '}
-      {displayedCards.length === 1 ? 'card' : 'cards'}
-    </div>
-  )}
+                <span className="ml-2 text-xs">
+                  {openMenu === 'sort' ? '▲' : '▼'}
+                </span>
+              </button>
+
+              {openMenu === 'sort' && (
+                <div className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded border bg-background shadow-lg">
+                  <div className="border-b px-3 py-2">
+                    <div className="text-sm font-semibold">
+                      Sort Collection
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      Choose a category to sort
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 p-2">
+  {[
+    ['newest', 'Newest Added'],
+    ['oldest', 'Oldest Added'],
+    ['player-asc', 'Player A–Z'],
+    ['player-desc', 'Player Z–A'],
+    ['year-desc', 'Year — Newest First'],
+    ['year-asc', 'Year — Oldest First'],
+    ['value-desc', 'Estimated Value — High to Low'],
+    ['value-asc', 'Estimated Value — Low to High'],
+    ['purchase-desc', 'Purchase Price — High to Low'],
+    ['purchase-asc', 'Purchase Price — Low to High']
+  ].map(([value, label]) => (
+    <button
+      key={value}
+      type="button"
+      onClick={() => {
+        setSortOption(value as SortOption)
+        closeMenus()
+      }}
+      className={`block w-full rounded px-3 py-2 text-left text-sm hover:bg-muted ${
+        sortOption === value
+          ? 'bg-muted font-medium'
+          : ''
+      }`}
+    >
+      {label}
+    </button>
+  ))}
 </div>
+                </div>
+              )}
+            </div>
+
+            {/* FILTER */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => toggleMenu('filter')}
+                className={`rounded border px-3 py-2 text-sm ${
+                  openMenu === 'filter'
+                    ? 'bg-primary text-black'
+                    : 'bg-background hover:bg-muted'
+                }`}
+              >
+                Filter
+
+                <span className="ml-2 text-xs">
+                  {openMenu === 'filter'
+                    ? '▲'
+                    : '▼'}
+                </span>
+              </button>
+
+              {openMenu === 'filter' && (
+  <div className="absolute right-0 z-30 mt-2 max-h-[70vh] w-80 overflow-y-auto rounded border bg-background shadow-lg">
+    <div className="border-b px-3 py-2">
+      <div className="text-sm font-semibold">
+        Filter Collection
+      </div>
+
+      <div className="text-xs text-muted-foreground">
+        Show only cards matching the selected criteria
+      </div>
+    </div>
+
+    <div className="space-y-4 p-3">
+      {/* SPORT */}
+      <div className="space-y-1">
+        <label
+          htmlFor="collection-filter-sport"
+          className="text-xs font-semibold uppercase text-muted-foreground"
+        >
+          Sport
+        </label>
+
+        <select
+          id="collection-filter-sport"
+          value={filters.sport}
+          onChange={event =>
+            updateFilter('sport', event.target.value)
+          }
+          className="w-full rounded border bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">All Sports</option>
+
+          {availableSports.map(sport => (
+            <option key={sport} value={sport}>
+              {sport}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* CARD ATTRIBUTES */}
+      <div className="space-y-3">
+        <div className="text-xs font-semibold uppercase text-muted-foreground">
+          Card Attributes
         </div>
 
-        <div className="flex flex-col items-end gap-3">
-          {/* COLLECTION TOOLS DROPDOWN */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() =>
-                setToolsOpen(previous => !previous)
+        {[
+          ['rookie', 'Rookie'],
+          ['autograph', 'Autograph'],
+          ['memorabilia', 'Memorabilia'],
+          ['serialNumbered', 'Serial Numbered']
+        ].map(([key, label]) => (
+          <div
+            key={key}
+            className="flex items-center justify-between gap-3"
+          >
+            <span className="text-sm">{label}</span>
+
+            <select
+              value={
+                filters[
+                  key as keyof Pick<
+                    CollectionFilters,
+                    | 'rookie'
+                    | 'autograph'
+                    | 'memorabilia'
+                    | 'serialNumbered'
+                  >
+                ]
               }
-              className="rounded bg-primary px-3 py-2 text-sm text-black"
+              onChange={event =>
+                updateFilter(
+                  key as
+                    | 'rookie'
+                    | 'autograph'
+                    | 'memorabilia'
+                    | 'serialNumbered',
+                  event.target.value as BooleanFilter
+                )
+              }
+              className="w-28 rounded border bg-background px-2 py-1 text-sm"
             >
-              Collection Tools
+              <option value="all">All</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+        ))}
+      </div>
 
-              <span className="ml-2 text-xs">
-                {toolsOpen ? '▲' : '▼'}
-              </span>
-            </button>
+      {/* STATUS */}
+      <div className="space-y-3">
+        <div className="text-xs font-semibold uppercase text-muted-foreground">
+          Status
+        </div>
 
-            {toolsOpen && (
-              <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded border bg-background shadow-lg">
-                <button
-                  type="button"
-                  disabled={cards.length === 0}
-                  onClick={() => {
-                    exportCollection(cards)
-                    setToolsOpen(false)
-                  }}
-                  className="block w-full px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Export Collection
-                </button>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm">Graded</span>
 
-                {!readOnly && (
+          <select
+            value={filters.graded}
+            onChange={event =>
+              updateFilter(
+                'graded',
+                event.target.value as BooleanFilter
+              )
+            }
+            className="w-28 rounded border bg-background px-2 py-1 text-sm"
+          >
+            <option value="all">All</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm">Sold</span>
+
+          <select
+            value={filters.sold}
+            onChange={event =>
+              updateFilter(
+                'sold',
+                event.target.value as BooleanFilter
+              )
+            }
+            className="w-28 rounded border bg-background px-2 py-1 text-sm"
+          >
+            <option value="all">All</option>
+            <option value="yes">Sold</option>
+            <option value="no">Unsold</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div className="flex justify-end gap-2 border-t p-3">
+      <button
+        type="button"
+        onClick={clearFilters}
+        className="rounded border px-3 py-1.5 text-xs hover:bg-muted"
+      >
+        Clear Filters
+      </button>
+
+      <button
+        type="button"
+        onClick={closeMenus}
+        className="rounded bg-primary px-3 py-1.5 text-xs text-black"
+      >
+        Done
+      </button>
+    </div>
+  </div>
+)}
+            </div>
+
+            {/* VIEW */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => toggleMenu('view')}
+                className={`rounded border px-3 py-2 text-sm ${
+                  openMenu === 'view'
+                    ? 'bg-primary text-black'
+                    : 'bg-background hover:bg-muted'
+                }`}
+              >
+                View
+
+                <span className="ml-2 text-xs">
+                  {openMenu === 'view' ? '▲' : '▼'}
+                </span>
+              </button>
+
+              {openMenu === 'view' && (
+                <div className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded border bg-background shadow-lg">
+                  <div className="border-b px-3 py-2">
+                    <div className="text-sm font-semibold">
+                      Visible Details
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      Choose which expanded card sections are visible.
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 p-2">
+                    {(
+                      Object.keys(
+                        visibleSections
+                      ) as Array<
+                        keyof VisibleSections
+                      >
+                    ).map(key => (
+                      <label
+                        key={key}
+                        className="flex cursor-pointer items-center justify-between gap-3 rounded px-3 py-2 text-sm hover:bg-muted"
+                      >
+                        <span>
+                          {sectionLabels[key]}
+                        </span>
+
+                        <input
+                          type="checkbox"
+                          checked={visibleSections[key]}
+                          onChange={() =>
+                            toggleSectionVisibility(key)
+                          }
+                        />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2 border-t p-2">
+                    <button
+                      type="button"
+                      onClick={showAllSections}
+                      className="flex-1 rounded border px-2 py-1.5 text-xs hover:bg-muted"
+                    >
+                      Show All
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={hideAllSections}
+                      className="flex-1 rounded border px-2 py-1.5 text-xs hover:bg-muted"
+                    >
+                      Hide All
+                    </button>
+                  </div>
+
+                  <div className="border-t px-3 py-2 text-xs text-muted-foreground">
+                    List and grid view options will be added later.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* COLLECTION TOOLS */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => toggleMenu('tools')}
+                className={`rounded border px-3 py-2 text-sm ${
+                  openMenu === 'tools'
+                    ? 'bg-primary text-black'
+                    : 'bg-background hover:bg-muted'
+                }`}
+              >
+                Collection Tools
+
+                <span className="ml-2 text-xs">
+                  {openMenu === 'tools'
+                    ? '▲'
+                    : '▼'}
+                </span>
+              </button>
+
+              {openMenu === 'tools' && (
+                <div className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded border bg-background shadow-lg">
+                  <button
+                    type="button"
+                    disabled={cards.length === 0}
+                    onClick={() => {
+                      exportCollection(cards)
+                      closeMenus()
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Export Collection
+                  </button>
+
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImportResult(null)
+                        setImportMessage(null)
+                        importInputRef.current?.click()
+                        closeMenus()
+                      }}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                    >
+                      Import Collection
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => {
-                      setImportResult(null)
-                      setImportMessage(null)
-                      importInputRef.current?.click()
-                      setToolsOpen(false)
+                      downloadCollectionTemplate()
+                      closeMenus()
                     }}
                     className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
                   >
-                    Import Collection
+                    Download Template
                   </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    downloadCollectionTemplate()
-                    setToolsOpen(false)
-                  }}
-                  className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                >
-                  Download Template
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* SECTION VISIBILITY BUTTONS */}
-          <div className="flex flex-wrap justify-end gap-2 text-xs">
-            {Object.entries(visibleSections).map(
-              ([key, value]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() =>
-                    toggleSectionVisibility(
-                      key as keyof VisibleSections
-                    )
-                  }
-                  className={`rounded border px-2 py-1 ${
-                    value
-                      ? 'bg-primary text-black'
-                      : 'bg-muted text-gray-500'
-                  }`}
-                >
-                  {key}
-                </button>
-              )
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* IMPORT MESSAGE */}
       {!readOnly && importMessage && (
         <div className="rounded-xl border bg-background p-4 text-sm">
           {importMessage}
         </div>
       )}
 
+      {/* IMPORT PREVIEW */}
       {!readOnly && importResult && (
         <div className="space-y-3 rounded-xl border bg-background p-4">
           <div className="flex items-center justify-between gap-4">
@@ -540,13 +1102,13 @@ const displayedCards = cards.filter(card => {
         </div>
       )}
 
-      {/* LIST */}
+      {/* COLLECTION LIST */}
       <div className="overflow-hidden rounded-xl border bg-card">
         {displayedCards.length === 0 ? (
           <div className="p-6 text-sm text-muted-foreground">
             {cards.length === 0
-  ? 'No cards have been added yet.'
-  : 'No cards match your search.'}
+              ? 'No cards have been added yet.'
+              : 'No cards match your search.'}
           </div>
         ) : (
           displayedCards.map(card => {
@@ -558,6 +1120,7 @@ const displayedCards = cards.filter(card => {
                 key={card.id}
                 className="border-b last:border-b-0"
               >
+                {/* PRIMARY ROW */}
                 <button
                   type="button"
                   onClick={() =>
@@ -628,6 +1191,7 @@ const displayedCards = cards.filter(card => {
                   </div>
                 </button>
 
+                {/* EDIT / DELETE ACTIONS */}
                 {!readOnly && (
                   <div className="flex gap-2 px-4 pb-2">
                     <button
@@ -674,6 +1238,7 @@ const displayedCards = cards.filter(card => {
                   </div>
                 )}
 
+                {/* EXPANDED DETAILS */}
                 {isOpen && (
                   <div className="space-y-6 bg-muted/20 p-5">
                     <div className="rounded border bg-background p-3">
@@ -694,22 +1259,28 @@ const displayedCards = cards.filter(card => {
                             <div>
                               Year: {card.year ?? '—'}
                             </div>
+
                             <div>
                               Brand: {card.brand ?? '—'}
                             </div>
+
                             <div>
                               Player: {card.player ?? '—'}
                             </div>
+
                             <div>
                               Card #: {card.card_number ?? '—'}
                             </div>
+
                             <div>
                               Set: {card.set ?? '—'}
                             </div>
+
                             <div>
                               Parallel:{' '}
                               {card.subset_parallel ?? '—'}
                             </div>
+
                             <div>
                               Sport: {card.sport ?? '—'}
                             </div>
@@ -868,6 +1439,7 @@ const displayedCards = cards.filter(card => {
         )}
       </div>
 
+      {/* HIDDEN IMPORT INPUT */}
       {!readOnly && (
         <input
           ref={importInputRef}
@@ -878,6 +1450,7 @@ const displayedCards = cards.filter(card => {
         />
       )}
 
+      {/* EDIT MODAL */}
       {!readOnly && editCard && (
         <CollectionModal
           editCard={editCard}
