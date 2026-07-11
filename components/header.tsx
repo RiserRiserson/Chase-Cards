@@ -1,16 +1,33 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Bell, Menu, Sun, Moon } from 'lucide-react'
+import {
+  Search,
+  Bell,
+  Menu,
+  Sun,
+  Moon,
+  X
+} from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { useEffect, useState } from 'react'
 
 interface HeaderProps {
   onMenuToggle?: () => void
+  searchValue?: string
+  onSearchChange?: (value: string) => void
+  searchPlaceholder?: string
+  searchEnabled?: boolean
 }
 
-export function Header({ onMenuToggle }: HeaderProps) {
+export function Header({
+  onMenuToggle,
+  searchValue = '',
+  onSearchChange,
+  searchPlaceholder = 'Search cards...',
+  searchEnabled = false
+}: HeaderProps) {
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -22,54 +39,88 @@ export function Header({ onMenuToggle }: HeaderProps) {
     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
   }
 
-  return (
-    <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
+  const clearSearch = () => {
+    onSearchChange?.('')
+  }
 
+  return (
+    <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
       {/* LEFT SIDE */}
       <div className="flex items-center gap-4">
         <Button
+          type="button"
           variant="ghost"
           size="icon"
           className="lg:hidden"
           onClick={onMenuToggle}
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="h-5 w-5" />
         </Button>
 
         <div className="relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
           <Input
-            placeholder="Search cards..."
-            className="pl-9 w-64 bg-secondary border-border"
+            value={searchValue}
+            onChange={event =>
+              onSearchChange?.(event.target.value)
+            }
+            placeholder={searchPlaceholder}
+            disabled={!searchEnabled}
+            className="w-64 border-border bg-secondary pl-9 pr-9"
           />
+
+          {searchEnabled && searchValue && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+              title="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* RIGHT SIDE */}
       <div className="flex items-center gap-3">
-
         {/* THEME TOGGLE */}
-        <Button variant="ghost" size="icon" onClick={toggleTheme}>
-          {!mounted ? null : (
-            resolvedTheme === 'dark' ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={toggleTheme}
+        >
+          {!mounted ? null : resolvedTheme === 'dark' ? (
+            <Sun className="h-5 w-5" />
+          ) : (
+            <Moon className="h-5 w-5" />
           )}
         </Button>
 
         {/* NOTIFICATIONS */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="relative"
+        >
+          <Bell className="h-5 w-5" />
+
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" />
         </Button>
 
         {/* UPGRADE */}
-        <Button variant="outline" size="sm" className="hidden sm:flex">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="hidden sm:flex"
+        >
           Upgrade to Pro
         </Button>
-
       </div>
     </header>
   )

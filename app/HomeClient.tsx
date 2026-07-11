@@ -35,10 +35,13 @@ export default function Home() {
 
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [profilesLoading, setProfilesLoading] = useState(false)
+
   const [selectedCollectionUserId, setSelectedCollectionUserId] =
     useState<string>('')
 
-  // Restore tab from URL
+  const [collectionSearch, setCollectionSearch] = useState('')
+
+  // ---------------- RESTORE TAB FROM URL ----------------
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
 
@@ -66,12 +69,20 @@ export default function Home() {
     }
   }, [])
 
-  // SESSION TRACKING
+  // ---------------- CLEAR COLLECTION SEARCH ----------------
+  useEffect(() => {
+    if (activeTab !== 'collection') {
+      setCollectionSearch('')
+    }
+  }, [activeTab])
+
+  // ---------------- SESSION TRACKING ----------------
   useEffect(() => {
     const getSession = async () => {
       const { data } = await supabase.auth.getSession()
 
       const sessionUser = data.session?.user ?? null
+
       setUser(sessionUser)
 
       if (sessionUser) {
@@ -88,6 +99,7 @@ export default function Home() {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         const sessionUser = session?.user ?? null
+
         setUser(sessionUser)
 
         if (sessionUser) {
@@ -96,6 +108,7 @@ export default function Home() {
           )
         } else {
           setSelectedCollectionUserId('')
+          setCollectionSearch('')
           router.push('/auth')
         }
       }
@@ -106,63 +119,64 @@ export default function Home() {
     }
   }, [router])
 
-  // LOAD PROFILE OPTIONS AND CARD COUNTS
-useEffect(() => {
-  if (!user?.id) {
-    setProfiles([])
-    return
-  }
-
-  const loadProfiles = async () => {
-    setProfilesLoading(true)
-
-    const [
-      { data: profileData, error: profileError },
-      { data: cardData, error: cardError }
-    ] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, display_name, email')
-        .order('display_name', { ascending: true }),
-
-      supabase
-        .from('cards')
-        .select('user_id')
-    ])
-
-    if (profileError) {
-      console.error('Unable to load profiles:', profileError)
+  // ---------------- LOAD PROFILE OPTIONS AND CARD COUNTS ----------------
+  useEffect(() => {
+    if (!user?.id) {
       setProfiles([])
-      setProfilesLoading(false)
       return
     }
 
-    if (cardError) {
-      console.error('Unable to load card counts:', cardError)
+    const loadProfiles = async () => {
+      setProfilesLoading(true)
+
+      const [
+        { data: profileData, error: profileError },
+        { data: cardData, error: cardError }
+      ] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, display_name, email')
+          .order('display_name', { ascending: true }),
+
+        supabase
+          .from('cards')
+          .select('user_id')
+      ])
+
+      if (profileError) {
+        console.error('Unable to load profiles:', profileError)
+
+        setProfiles([])
+        setProfilesLoading(false)
+        return
+      }
+
+      if (cardError) {
+        console.error('Unable to load card counts:', cardError)
+      }
+
+      const cardCounts = new Map<string, number>()
+
+      for (const card of cardData ?? []) {
+        if (!card.user_id) continue
+
+        cardCounts.set(
+          card.user_id,
+          (cardCounts.get(card.user_id) ?? 0) + 1
+        )
+      }
+
+      const profilesWithCounts = (profileData ?? []).map(profile => ({
+        ...profile,
+        card_count: cardCounts.get(profile.id) ?? 0
+      }))
+
+      setProfiles(profilesWithCounts)
+      setProfilesLoading(false)
     }
 
-    const cardCounts = new Map<string, number>()
-
-    for (const card of cardData ?? []) {
-      if (!card.user_id) continue
-
-      cardCounts.set(
-        card.user_id,
-        (cardCounts.get(card.user_id) ?? 0) + 1
-      )
-    }
-
-    const profilesWithCounts = (profileData ?? []).map(profile => ({
-      ...profile,
-      card_count: cardCounts.get(profile.id) ?? 0
-    }))
-
-    setProfiles(profilesWithCounts)
-    setProfilesLoading(false)
-  }
-
-  void loadProfiles()
-}, [user?.id])
+    void loadProfiles()
+  }, [user?.id])
 
   const activeCollectionUserId =
     selectedCollectionUserId || user?.id || ''
@@ -181,9 +195,12 @@ useEffect(() => {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
+
     setUser(null)
     setProfiles([])
     setSelectedCollectionUserId('')
+    setCollectionSearch('')
+
     router.push('/auth')
   }
 
@@ -231,6 +248,10 @@ useEffect(() => {
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          searchValue={collectionSearch}
+          onSearchChange={setCollectionSearch}
+          searchPlaceholder="Search collection..."
+          searchEnabled={activeTab === 'collection'}
         />
 
         <main className="flex-1 overflow-auto p-6">
@@ -291,11 +312,13 @@ useEffect(() => {
 
                   <select
                     value={activeCollectionUserId}
-                    onChange={event =>
+                    onChange={event => {
                       setSelectedCollectionUserId(
                         event.target.value
                       )
-                    }
+
+                      setCollectionSearch('')
+                    }}
                     disabled={profilesLoading}
                     className="min-w-48 rounded border bg-background px-3 py-2 text-sm"
                   >
@@ -308,13 +331,19 @@ useEffect(() => {
                     {!profilesLoading &&
                       profiles.map(profile => (
                         <option
-  key={profile.id}
-  value={profile.id}
->
-  {profile.display_name} ({profile.card_count}{' '}
-  {profile.card_count === 1 ? 'card' : 'cards'})
-  {profile.id === user?.id ? ' — You' : ''}
-</option>
+                          key={profile.id}
+                          value={profile.id}
+                        >
+                          {profile.display_name} (
+                          {profile.card_count}{' '}
+                          {profile.card_count === 1
+                            ? 'card'
+                            : 'cards'}
+                          )
+                          {profile.id === user?.id
+                            ? ' — You'
+                            : ''}
+                        </option>
                       ))}
                   </select>
                 </div>
@@ -327,6 +356,7 @@ useEffect(() => {
                   selectedCollectionProfile?.display_name ??
                   'Selected collector'
                 }
+                searchQuery={collectionSearch}
               />
             </div>
           ) : activeTab === 'analytics' ? (

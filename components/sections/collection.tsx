@@ -28,6 +28,7 @@ type CollectionSectionProps = {
   userId?: string
   readOnly?: boolean
   ownerName?: string
+  searchQuery?: string
 }
 
 const defaultVisibleSections: VisibleSections = {
@@ -41,7 +42,8 @@ const defaultVisibleSections: VisibleSections = {
 export function CollectionSection({
   userId,
   readOnly = false,
-  ownerName = 'Collector'
+  ownerName = 'Collector',
+  searchQuery = ''
 }: CollectionSectionProps) {
   const [cards, setCards] = useState<CardItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -142,6 +144,30 @@ export function CollectionSection({
   useEffect(() => {
     void fetchCards()
   }, [userId])
+
+const displayedCards = cards.filter(card => {
+  const query = searchQuery.trim().toLowerCase()
+
+  if (!query) return true
+
+  const searchableValues = [
+    card.full_card_name,
+    card.player,
+    card.brand,
+    card.set,
+    card.card_number,
+    card.subset_parallel,
+    card.sport,
+    card.grading_company
+  ]
+
+  return searchableValues.some(value =>
+    String(value ?? '')
+      .toLowerCase()
+      .includes(query)
+  )
+})
+
 
   /* ---------------- IMPORT FILE ---------------- */
   const handleImportFile = async (
@@ -507,12 +533,14 @@ export function CollectionSection({
 
       {/* LIST */}
       <div className="overflow-hidden rounded-xl border bg-card">
-        {cards.length === 0 ? (
+        {displayedCards.length === 0 ? (
           <div className="p-6 text-sm text-muted-foreground">
-            No cards have been added yet.
+            {cards.length === 0
+  ? 'No cards have been added yet.'
+  : 'No cards match your search.'}
           </div>
         ) : (
-          cards.map(card => {
+          displayedCards.map(card => {
             const isOpen =
               selectedCard?.id === card.id
 
