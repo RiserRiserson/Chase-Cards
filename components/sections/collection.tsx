@@ -1,11 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent
+} from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { CardItem } from './collection/card'
 import { CollectionModal } from './collection/collection-modal'
 import { exportCollection } from './collection/exportCollection'
 import { downloadCollectionTemplate } from './collection/downloadCollectionTemplate'
+import {
+  importCollectionFile,
+  type ImportResult
+} from './collection/importCollection'
 
 type VisibleSections = {
   identity: boolean
@@ -34,6 +43,10 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
   /* ---------------- COLLECTION TOOLS ---------------- */
   const [toolsOpen, setToolsOpen] = useState(false)
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importMessage, setImportMessage] = useState<string | null>(null)
+  const importInputRef = useRef<HTMLInputElement | null>(null)
 
   const [visibleSections, setVisibleSections] =
     useState<VisibleSections>(() => {
@@ -97,6 +110,79 @@ export function CollectionSection({ userId }: { userId?: string }) {
     void fetchCards()
   }, [userId])
 
+  /* ---------------- IMPORT FILE ---------------- */
+  const handleImportFile = async (
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0]
+
+    if (!file) return
+
+    setImportMessage(null)
+
+    try {
+      const result = await importCollectionFile(file)
+
+      setImportResult(result)
+    } catch (error) {
+      console.error('Unable to read import file:', error)
+
+      setImportResult({
+        cards: [],
+        errors: ['The selected spreadsheet could not be read.']
+      })
+    } finally {
+      event.target.value = ''
+    }
+  }
+
+  /* ---------------- CONFIRM IMPORT ---------------- */
+  const confirmImport = async () => {
+    if (!userId) {
+      setImportMessage('You must be signed in before importing cards.')
+      return
+    }
+
+    if (!importResult || importResult.cards.length === 0) {
+      setImportMessage('There are no valid cards to import.')
+      return
+    }
+
+    if (importResult.errors.length > 0) {
+      setImportMessage(
+        'Resolve the spreadsheet errors before importing.'
+      )
+      return
+    }
+
+    setImporting(true)
+    setImportMessage(null)
+
+    const rowsToInsert = importResult.cards.map(card => ({
+      ...card,
+      user_id: userId
+    }))
+
+    const { error } = await supabase
+      .from('cards')
+      .insert(rowsToInsert)
+
+    if (error) {
+      console.error('Unable to import collection:', error)
+      setImportMessage('The collection could not be imported.')
+      setImporting(false)
+      return
+    }
+
+    await fetchCards()
+
+    setImportResult(null)
+    setImportMessage(
+      `${rowsToInsert.length} cards imported successfully.`
+    )
+    setImporting(false)
+  }
+
   /* ---------------- SAVE EDIT ---------------- */
   const saveCard = async (updated: CardItem) => {
     const { error } = await supabase
@@ -110,7 +196,9 @@ export function CollectionSection({ userId }: { userId?: string }) {
     }
 
     setCards(previous =>
-      previous.map(card => (card.id === updated.id ? updated : card))
+      previous.map(card =>
+        card.id === updated.id ? updated : card
+      )
     )
 
     setSelectedCard(previous =>
@@ -132,7 +220,9 @@ export function CollectionSection({ userId }: { userId?: string }) {
       return
     }
 
-    setCards(previous => previous.filter(card => card.id !== id))
+    setCards(previous =>
+      previous.filter(card => card.id !== id)
+    )
 
     setSelectedCard(previous =>
       previous?.id === id ? null : previous
@@ -154,11 +244,13 @@ export function CollectionSection({ userId }: { userId?: string }) {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-6">
       {/* HEADER */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold">Collection</h2>
+          <h2 className="text-2xl font-semibold">
+            Collection
+          </h2>
 
           <p className="text-sm text-muted-foreground">
             {cards.length} cards
@@ -170,67 +262,178 @@ export function CollectionSection({ userId }: { userId?: string }) {
           <div className="relative">
             <button
               type="button"
-              onClick={() => setToolsOpen(previous => !previous)}
+              onClick={() =>
+                setToolsOpen(previous => !previous)
+              }
               className="rounded bg-primary px-3 py-2 text-sm text-black"
             >
               Collection Tools
+
               <span className="ml-2 text-xs">
                 {toolsOpen ? '▲' : '▼'}
               </span>
             </button>
 
             {toolsOpen && (
-  <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded border bg-background shadow-lg">
-    <button
-      type="button"
-      disabled={cards.length === 0}
-      onClick={() => {
-        exportCollection(cards)
-        setToolsOpen(false)
-      }}
-      className="block w-full px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      Export Collection
-    </button>
+              <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded border bg-background shadow-lg">
+                <button
+                  type="button"
+                  disabled={cards.length === 0}
+                  onClick={() => {
+                    exportCollection(cards)
+                    setToolsOpen(false)
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Export Collection
+                </button>
 
-    <button
-      type="button"
-      onClick={() => {
-        downloadCollectionTemplate()
-        setToolsOpen(false)
-      }}
-      className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
-    >
-      Download Template
-    </button>
-  </div>
-)}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImportResult(null)
+                    setImportMessage(null)
+                    importInputRef.current?.click()
+                    setToolsOpen(false)
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                >
+                  Import Collection
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    downloadCollectionTemplate()
+                    setToolsOpen(false)
+                  }}
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                >
+                  Download Template
+                </button>
+              </div>
+            )}
           </div>
 
           {/* SECTION VISIBILITY BUTTONS */}
           <div className="flex flex-wrap justify-end gap-2 text-xs">
-            {Object.entries(visibleSections).map(([key, value]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() =>
-                  toggleSectionVisibility(key as keyof VisibleSections)
-                }
-                className={`rounded border px-2 py-1 ${
-                  value
-                    ? 'bg-primary text-black'
-                    : 'bg-muted text-gray-500'
-                }`}
-              >
-                {key}
-              </button>
-            ))}
+            {Object.entries(visibleSections).map(
+              ([key, value]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() =>
+                    toggleSectionVisibility(
+                      key as keyof VisibleSections
+                    )
+                  }
+                  className={`rounded border px-2 py-1 ${
+                    value
+                      ? 'bg-primary text-black'
+                      : 'bg-muted text-gray-500'
+                  }`}
+                >
+                  {key}
+                </button>
+              )
+            )}
           </div>
         </div>
       </div>
 
+      {/* IMPORT MESSAGE */}
+      {importMessage && (
+        <div className="rounded-xl border bg-background p-4 text-sm">
+          {importMessage}
+        </div>
+      )}
+
+      {/* IMPORT PREVIEW */}
+      {importResult && (
+        <div className="space-y-3 rounded-xl border bg-background p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h3 className="font-semibold">
+                Import Preview
+              </h3>
+
+              <p className="text-sm text-muted-foreground">
+                {importResult.cards.length} cards found
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="rounded border px-3 py-1 text-sm"
+              onClick={() => {
+                setImportResult(null)
+                setImportMessage(null)
+              }}
+              disabled={importing}
+            >
+              Close
+            </button>
+          </div>
+
+          {importResult.errors.length > 0 ? (
+            <div className="rounded border border-red-500/40 bg-red-500/10 p-3">
+              <div className="mb-2 text-sm font-semibold text-red-500">
+                {importResult.errors.length} import errors
+              </div>
+
+              <div className="max-h-48 space-y-1 overflow-y-auto text-sm">
+                {importResult.errors.map((error, index) => (
+                  <div key={`${error}-${index}`}>
+                    {error}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded border border-green-500/40 bg-green-500/10 p-3 text-sm">
+              The spreadsheet passed validation.
+            </div>
+          )}
+
+          {importMessage && (
+            <div className="rounded border p-3 text-sm">
+              {importMessage}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              className="rounded border px-3 py-2 text-sm"
+              onClick={() => {
+                setImportResult(null)
+                setImportMessage(null)
+              }}
+              disabled={importing}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              className="rounded bg-green-600 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={confirmImport}
+              disabled={
+                importing ||
+                importResult.cards.length === 0 ||
+                importResult.errors.length > 0
+              }
+            >
+              {importing
+                ? 'Importing...'
+                : `Confirm Import (${importResult.cards.length})`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* LIST */}
-      <div className="border rounded-xl overflow-hidden bg-card">
+      <div className="overflow-hidden rounded-xl border bg-card">
         {cards.length === 0 ? (
           <div className="p-6 text-sm text-muted-foreground">
             No cards have been added yet.
@@ -250,9 +453,9 @@ export function CollectionSection({ userId }: { userId?: string }) {
                   onClick={() =>
                     setSelectedCard(isOpen ? null : card)
                   }
-                  className="w-full grid grid-cols-[80px_2fr_80px_2fr_2fr_120px_120px] gap-3 px-4 py-3 items-center hover:bg-muted/30 text-left"
+                  className="grid w-full grid-cols-[80px_2fr_80px_2fr_2fr_120px_120px] items-center gap-3 px-4 py-3 text-left hover:bg-muted/30"
                 >
-                  <div className="w-14 h-14 rounded border bg-muted overflow-hidden">
+                  <div className="h-14 w-14 overflow-hidden rounded border bg-muted">
                     {card.image_url ? (
                       <img
                         src={card.image_url}
@@ -261,16 +464,16 @@ export function CollectionSection({ userId }: { userId?: string }) {
                           card.player ??
                           'Trading card'
                         }
-                        className="w-full h-full object-cover"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="text-[10px] flex items-center justify-center h-full">
+                      <div className="flex h-full items-center justify-center text-[10px]">
                         No Img
                       </div>
                     )}
                   </div>
 
-                  <div className="font-medium text-sm truncate">
+                  <div className="truncate text-sm font-medium">
                     {card.player ??
                       card.full_card_name ??
                       'Unnamed Card'}
@@ -280,35 +483,35 @@ export function CollectionSection({ userId }: { userId?: string }) {
                     {card.year ?? '—'}
                   </div>
 
-                  <div className="text-sm truncate">
+                  <div className="truncate text-sm">
                     {card.set ?? '—'}
                   </div>
 
-                  <div className="text-sm truncate">
+                  <div className="truncate text-sm">
                     {card.brand ?? '—'}
                   </div>
 
                   <div className="flex gap-2 text-xs">
                     {card.rookie && (
-                      <span className="border px-1 rounded text-[10px]">
+                      <span className="rounded border px-1 text-[10px]">
                         RC
                       </span>
                     )}
 
                     {card.autograph && (
-                      <span className="border px-1 rounded text-[10px]">
+                      <span className="rounded border px-1 text-[10px]">
                         AUTO
                       </span>
                     )}
 
                     {card.memorabilia && (
-                      <span className="border px-1 rounded text-[10px]">
+                      <span className="rounded border px-1 text-[10px]">
                         MEM
                       </span>
                     )}
                   </div>
 
-                  <div className="text-sm font-medium text-right">
+                  <div className="text-right text-sm font-medium">
                     ${card.estimated_value_cad ?? 0}
                   </div>
                 </button>
@@ -317,7 +520,7 @@ export function CollectionSection({ userId }: { userId?: string }) {
                 <div className="flex gap-2 px-4 pb-2">
                   <button
                     type="button"
-                    className="text-xs px-2 py-1 border rounded"
+                    className="rounded border px-2 py-1 text-xs"
                     onClick={() => setEditCard(card)}
                   >
                     Edit
@@ -327,16 +530,20 @@ export function CollectionSection({ userId }: { userId?: string }) {
                     <>
                       <button
                         type="button"
-                        className="text-xs px-2 py-1 bg-red-600 text-white rounded"
-                        onClick={() => confirmDelete(card.id)}
+                        className="rounded bg-red-600 px-2 py-1 text-xs text-white"
+                        onClick={() =>
+                          confirmDelete(card.id)
+                        }
                       >
                         Confirm
                       </button>
 
                       <button
                         type="button"
-                        className="text-xs px-2 py-1 border rounded"
-                        onClick={() => setDeleteConfirmId(null)}
+                        className="rounded border px-2 py-1 text-xs"
+                        onClick={() =>
+                          setDeleteConfirmId(null)
+                        }
                       >
                         Cancel
                       </button>
@@ -344,8 +551,10 @@ export function CollectionSection({ userId }: { userId?: string }) {
                   ) : (
                     <button
                       type="button"
-                      className="text-xs px-2 py-1 border rounded text-red-500"
-                      onClick={() => setDeleteConfirmId(card.id)}
+                      className="rounded border px-2 py-1 text-xs text-red-500"
+                      onClick={() =>
+                        setDeleteConfirmId(card.id)
+                      }
                     >
                       Delete
                     </button>
@@ -354,58 +563,77 @@ export function CollectionSection({ userId }: { userId?: string }) {
 
                 {/* EXPANDED DETAILS */}
                 {isOpen && (
-                  <div className="p-5 bg-muted/20 space-y-6">
-                    <div className="p-3 border rounded bg-background">
-                      <div className="font-semibold text-sm">
-                        {card.full_card_name ?? 'Unnamed Card'}
+                  <div className="space-y-6 bg-muted/20 p-5">
+                    <div className="rounded border bg-background p-3">
+                      <div className="text-sm font-semibold">
+                        {card.full_card_name ??
+                          'Unnamed Card'}
                       </div>
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid gap-4 md:grid-cols-2">
                       {visibleSections.identity && (
-                        <div className="border rounded p-3 bg-background">
-                          <div className="text-xs font-semibold uppercase mb-2">
+                        <div className="rounded border bg-background p-3">
+                          <div className="mb-2 text-xs font-semibold uppercase">
                             Identity
                           </div>
 
                           <div className="space-y-1 text-sm">
-                            <div>Year: {card.year ?? '—'}</div>
-                            <div>Brand: {card.brand ?? '—'}</div>
-                            <div>Player: {card.player ?? '—'}</div>
+                            <div>
+                              Year: {card.year ?? '—'}
+                            </div>
+                            <div>
+                              Brand: {card.brand ?? '—'}
+                            </div>
+                            <div>
+                              Player: {card.player ?? '—'}
+                            </div>
                             <div>
                               Card #: {card.card_number ?? '—'}
                             </div>
-                            <div>Set: {card.set ?? '—'}</div>
                             <div>
-                              Parallel: {card.subset_parallel ?? '—'}
+                              Set: {card.set ?? '—'}
                             </div>
-                            <div>Sport: {card.sport ?? '—'}</div>
+                            <div>
+                              Parallel:{' '}
+                              {card.subset_parallel ?? '—'}
+                            </div>
+                            <div>
+                              Sport: {card.sport ?? '—'}
+                            </div>
                           </div>
                         </div>
                       )}
 
                       {visibleSections.attributes && (
-                        <div className="border rounded p-3 bg-background">
-                          <div className="text-xs font-semibold uppercase mb-2">
+                        <div className="rounded border bg-background p-3">
+                          <div className="mb-2 text-xs font-semibold uppercase">
                             Attributes
                           </div>
 
                           <div className="space-y-1 text-sm">
                             <div>
-                              Rookie: {card.rookie ? 'Yes' : '—'}
+                              Rookie:{' '}
+                              {card.rookie ? 'Yes' : '—'}
                             </div>
+
                             <div>
                               Autograph:{' '}
                               {card.autograph ? 'Yes' : '—'}
                             </div>
+
                             <div>
                               Memorabilia:{' '}
-                              {card.memorabilia ? 'Yes' : '—'}
+                              {card.memorabilia
+                                ? 'Yes'
+                                : '—'}
                             </div>
+
                             <div>
                               Game Used:{' '}
                               {card.game_used ? 'Yes' : '—'}
                             </div>
+
                             <div>
                               Serial:{' '}
                               {card.serial_numbered
@@ -417,20 +645,23 @@ export function CollectionSection({ userId }: { userId?: string }) {
                       )}
 
                       {visibleSections.condition && (
-                        <div className="border rounded p-3 bg-background">
-                          <div className="text-xs font-semibold uppercase mb-2">
+                        <div className="rounded border bg-background p-3">
+                          <div className="mb-2 text-xs font-semibold uppercase">
                             Condition
                           </div>
 
                           <div className="space-y-1 text-sm">
                             <div>
                               Purchased:{' '}
-                              {card.condition_purchased ?? '—'}
+                              {card.condition_purchased ??
+                                '—'}
                             </div>
+
                             <div>
                               Current:{' '}
                               {card.current_condition ?? '—'}
                             </div>
+
                             <div>
                               Grading:{' '}
                               {card.grading_company ?? '—'}
@@ -440,47 +671,55 @@ export function CollectionSection({ userId }: { userId?: string }) {
                       )}
 
                       {visibleSections.purchase && (
-                        <div className="border rounded p-3 bg-background">
-                          <div className="text-xs font-semibold uppercase mb-2">
+                        <div className="rounded border bg-background p-3">
+                          <div className="mb-2 text-xs font-semibold uppercase">
                             Purchase
                           </div>
 
                           <div className="space-y-1 text-sm">
                             <div>
-                              Date: {card.purchase_date ?? '—'}
+                              Date:{' '}
+                              {card.purchase_date ?? '—'}
                             </div>
+
                             <div>
-                              From: {card.purchase_from ?? '—'}
+                              From:{' '}
+                              {card.purchase_from ?? '—'}
                             </div>
+
                             <div>
-                              Price: ${card.purchase_price ?? 0}
+                              Price: $
+                              {card.purchase_price ?? 0}
                             </div>
                           </div>
                         </div>
                       )}
 
                       {visibleSections.value && (
-                        <div className="border rounded p-3 bg-background md:col-span-2">
-                          <div className="text-xs font-semibold uppercase mb-2">
+                        <div className="rounded border bg-background p-3 md:col-span-2">
+                          <div className="mb-2 text-xs font-semibold uppercase">
                             Value &amp; Sales
                           </div>
 
-                          <div className="grid md:grid-cols-2 gap-2 text-sm">
+                          <div className="grid gap-2 text-sm md:grid-cols-2">
                             <div>
                               Estimated Value: $
                               {card.estimated_value_cad ?? 0}
                             </div>
 
                             <div>
-                              Value Date: {card.value_date ?? '—'}
+                              Value Date:{' '}
+                              {card.value_date ?? '—'}
                             </div>
 
                             <div>
-                              Sold: {card.card_sold ? 'Yes' : 'No'}
+                              Sold:{' '}
+                              {card.card_sold ? 'Yes' : 'No'}
                             </div>
 
                             <div>
-                              Sale Date: {card.sales_date ?? '—'}
+                              Sale Date:{' '}
+                              {card.sales_date ?? '—'}
                             </div>
 
                             <div>
@@ -489,7 +728,8 @@ export function CollectionSection({ userId }: { userId?: string }) {
                             </div>
 
                             <div>
-                              Sale Price: ${card.sales_amount ?? 0}
+                              Sale Price: $
+                              {card.sales_amount ?? 0}
                             </div>
 
                             <div>
@@ -506,6 +746,15 @@ export function CollectionSection({ userId }: { userId?: string }) {
           })
         )}
       </div>
+
+      {/* HIDDEN IMPORT FILE INPUT */}
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        className="hidden"
+        onChange={handleImportFile}
+      />
 
       {/* FULL EDIT MODAL */}
       {editCard && (
