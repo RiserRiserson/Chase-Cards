@@ -43,6 +43,8 @@ type SortOption =
   | 'purchase-desc'
   | 'purchase-asc'
 
+type CollectionView = 'list' | 'grid'
+
 type BooleanFilter = 'all' | 'yes' | 'no'
 
 type CollectionFilters = {
@@ -117,6 +119,19 @@ const [sortOption, setSortOption] =
 const [filters, setFilters] =
   useState<CollectionFilters>(defaultCollectionFilters)
 
+const [collectionView, setCollectionView] =
+  useState<CollectionView>(() => {
+    if (typeof window === 'undefined') {
+      return 'list'
+    }
+
+    const savedView = localStorage.getItem(
+      'collection_view'
+    )
+
+    return savedView === 'grid' ? 'grid' : 'list'
+  })
+
 /* ---------------- COLLECTION TOOLS ---------------- */
 const [importResult, setImportResult] =
   useState<ImportResult | null>(null)
@@ -152,14 +167,21 @@ const [importResult, setImportResult] =
     })
 
   useEffect(() => {
-    localStorage.setItem(
-      'collection_visible_sections',
-      JSON.stringify(visibleSections)
-    )
-  }, [visibleSections])
+  localStorage.setItem(
+    'collection_visible_sections',
+    JSON.stringify(visibleSections)
+  )
+}, [visibleSections])
 
-  useEffect(() => {
-    setSelectedCard(null)
+useEffect(() => {
+  localStorage.setItem(
+    'collection_view',
+    collectionView
+  )
+}, [collectionView])
+
+useEffect(() => {
+  setSelectedCard(null)
     setEditCard(null)
     setDeleteConfirmId(null)
     setImportResult(null)
@@ -886,25 +908,69 @@ const handleImportFile = async (
               </button>
 
               {openMenu === 'view' && (
-                <div className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded border bg-background shadow-lg">
-                  <div className="border-b px-3 py-2">
-                    <div className="text-sm font-semibold">
-                      Visible Details
-                    </div>
+  <div className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded border bg-background shadow-lg">
+    <div className="border-b px-3 py-2">
+      <div className="text-sm font-semibold">
+        Collection View
+      </div>
 
-                    <div className="text-xs text-muted-foreground">
-                      Choose which expanded card sections are visible.
-                    </div>
-                  </div>
+      <div className="text-xs text-muted-foreground">
+        Choose how cards and expanded details are displayed
+      </div>
+    </div>
 
-                  <div className="space-y-1 p-2">
-                    {(
-                      Object.keys(
-                        visibleSections
-                      ) as Array<
-                        keyof VisibleSections
-                      >
-                    ).map(key => (
+    {/* LAYOUT */}
+    <div className="space-y-1 border-b p-2">
+      <div className="px-3 py-1 text-xs font-semibold uppercase text-muted-foreground">
+        Layout
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          setCollectionView('list')
+          setSelectedCard(null)
+          closeMenus()
+        }}
+        className={`block w-full rounded px-3 py-2 text-left text-sm hover:bg-muted ${
+          collectionView === 'list'
+            ? 'bg-muted font-medium'
+            : ''
+        }`}
+      >
+        List View
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setCollectionView('grid')
+          setSelectedCard(null)
+          closeMenus()
+        }}
+        className={`block w-full rounded px-3 py-2 text-left text-sm hover:bg-muted ${
+          collectionView === 'grid'
+            ? 'bg-muted font-medium'
+            : ''
+        }`}
+      >
+        Grid View
+      </button>
+    </div>
+
+    {/* VISIBLE DETAILS */}
+    <div className="space-y-1 p-2">
+      <div className="px-3 py-1 text-xs font-semibold uppercase text-muted-foreground">
+        Visible Details
+      </div>
+
+      {(
+        Object.keys(
+          visibleSections
+        ) as Array<
+          keyof VisibleSections
+        >
+      ).map(key => (
                       <label
                         key={key}
                         className="flex cursor-pointer items-center justify-between gap-3 rounded px-3 py-2 text-sm hover:bg-muted"
@@ -940,13 +1006,9 @@ const handleImportFile = async (
                     >
                       Hide All
                     </button>
-                  </div>
-
-                  <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-                    List and grid view options will be added later.
-                  </div>
-                </div>
-              )}
+    </div>
+  </div>
+)}
             </div>
 
             {/* COLLECTION TOOLS */}
@@ -1102,16 +1164,141 @@ const handleImportFile = async (
         </div>
       )}
 
-      {/* COLLECTION LIST */}
-      <div className="overflow-hidden rounded-xl border bg-card">
-        {displayedCards.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground">
-            {cards.length === 0
-              ? 'No cards have been added yet.'
-              : 'No cards match your search.'}
-          </div>
-        ) : (
-          displayedCards.map(card => {
+      {/* COLLECTION RESULTS */}
+{displayedCards.length === 0 ? (
+  <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+    {cards.length === 0
+      ? 'No cards have been added yet.'
+      : 'No cards match your search or filters.'}
+  </div>
+) : collectionView === 'grid' ? (
+  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    {displayedCards.map(card => {
+      const isOpen = selectedCard?.id === card.id
+
+      return (
+        <div
+          key={card.id}
+          className={`overflow-hidden rounded-xl border bg-card ${
+            isOpen ? 'ring-2 ring-primary' : ''
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedCard(isOpen ? null : card)
+            }
+            className="block w-full text-left hover:bg-muted/30"
+          >
+            <div className="aspect-3/4 w-full overflow-hidden bg-muted">
+              {card.image_url ? (
+                <img
+                  src={card.image_url}
+                  alt={
+                    card.full_card_name ??
+                    card.player ??
+                    'Trading card'
+                  }
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                  No Image
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 p-4">
+              <div className="wrap-break-word font-medium">
+                {card.player ??
+                  card.full_card_name ??
+                  'Unnamed Card'}
+              </div>
+
+              <div className="text-sm text-muted-foreground">
+                {card.year ?? '—'} · {card.brand ?? '—'}
+              </div>
+
+              <div className="wrap-break-word text-sm">
+                {card.set ?? '—'}
+              </div>
+
+              <div className="flex min-h-5 flex-wrap gap-1">
+                {card.rookie && (
+                  <span className="rounded border px-1.5 py-0.5 text-[10px]">
+                    RC
+                  </span>
+                )}
+
+                {card.autograph && (
+                  <span className="rounded border px-1.5 py-0.5 text-[10px]">
+                    AUTO
+                  </span>
+                )}
+
+                {card.memorabilia && (
+                  <span className="rounded border px-1.5 py-0.5 text-[10px]">
+                    MEM
+                  </span>
+                )}
+              </div>
+
+              <div className="text-sm font-semibold">
+                ${card.estimated_value_cad ?? 0}
+              </div>
+            </div>
+          </button>
+
+          {!readOnly && (
+            <div className="flex gap-2 border-t px-4 py-3">
+              <button
+                type="button"
+                className="rounded border px-2 py-1 text-xs"
+                onClick={() => setEditCard(card)}
+              >
+                Edit
+              </button>
+
+              {deleteConfirmId === card.id ? (
+                <>
+                  <button
+                    type="button"
+                    className="rounded bg-red-600 px-2 py-1 text-xs text-white"
+                    onClick={() => confirmDelete(card.id)}
+                  >
+                    Confirm
+                  </button>
+
+                  <button
+                    type="button"
+                    className="rounded border px-2 py-1 text-xs"
+                    onClick={() =>
+                      setDeleteConfirmId(null)
+                    }
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="rounded border px-2 py-1 text-xs text-red-500"
+                  onClick={() =>
+                    setDeleteConfirmId(card.id)
+                  }
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )
+    })}
+  </div>
+) : (
+  <div className="overflow-hidden rounded-xl border bg-card">
+    {displayedCards.map(card => {
             const isOpen =
               selectedCard?.id === card.id
 
@@ -1435,11 +1622,11 @@ const handleImportFile = async (
                 )}
               </div>
             )
-          })
-        )}
-      </div>
+                  })}
+  </div>
+)}
 
-      {/* HIDDEN IMPORT INPUT */}
+{/* HIDDEN IMPORT INPUT */}
       {!readOnly && (
         <input
           ref={importInputRef}
